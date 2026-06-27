@@ -44,9 +44,9 @@ textarea,input{
 }
 
 #ocr {
-  font-family: 'Courier New', Courier, monospace;
+  font-family: monospace;
   white-space: pre-wrap;
-  overflow-x: auto;
+  word-break: break-all;
 }
 
 button{
@@ -57,6 +57,7 @@ button{
   border-radius:8px;
   cursor:pointer;
   margin-top:6px;
+  font-weight: bold;
 }
 
 img{
@@ -76,7 +77,29 @@ img{
   height: 12px;
   background: #4f8cff;
   border-radius: 6px;
-  transition: width 0.1s ease;
+}
+
+/* 갤럭시 스타일 어시스트 툴바 */
+.assist-toolbar {
+  display: none;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.btn-assist {
+  background: #3a3f50;
+  color: #7cb5ff;
+  border: 1px solid #4f8cff;
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: 20px;
+  margin-top: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-assist:active {
+  background: #4f8cff;
+  color: #fff;
 }
 
 /* 전체보기 모달 스타일 */
@@ -98,8 +121,6 @@ img{
   max-width: 900px;
   max-height: 85%;
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-  position: relative;
 }
 
 .modal-header {
@@ -111,20 +132,9 @@ img{
   margin-bottom: 15px;
 }
 
-.modal-header h3 {
-  margin: 0;
-}
-
-.close-btn {
-  background: #ff4f4f;
-  margin-top: 0;
-}
-
 .modal-body {
   white-space: pre-wrap;
-  font-family: 'Courier New', Courier, monospace;
-  overflow-x: auto;
-  word-break: keep-all;
+  font-family: monospace;
   line-height: 1.6;
 }
 </style>
@@ -133,7 +143,7 @@ img{
 <body>
 
 <header>
-  <div>OCR AI Studio FIXED (초정밀 타일 분할 안정화판)</div>
+  <div>OCR AI Studio FIXED (갤럭시 텍스트 추출 어시스트판)</div>
 </header>
 
 <div class="container">
@@ -144,16 +154,22 @@ img{
   </div>
 
   <div class="card">
-    <button onclick="app.runOCR()">초정밀 분할 OCR 실행</button>
+    <button onclick="app.runOCR()" style="width:100%; padding:12px; font-size:15px;">정밀 융합 OCR 실행</button>
     <div id="progressContainer" class="progress-container">
-      <div style="font-size:12px; margin-bottom:4px;" id="progressText">준비 중...</div>
+      <div style="font-size:12px; margin-bottom:4px;" id="progressText">데이터 분석 결합 중...</div>
       <div class="progress-bar" id="progressBar"></div>
     </div>
   </div>
 
   <div class="card">
-    <h3>OCR 결과 (초미세 타일링 조립 및 행열 유지 완료)</h3>
-    <textarea id="ocr" rows="15"></textarea>
+    <h3>OCR 결과</h3>
+    
+    <div id="assistToolbar" class="assist-toolbar">
+      <button class="btn-assist" onclick="app.copyToClipboard()">📋 전체 복사</button>
+      <button class="btn-assist" onclick="app.shareText()">📤 스마트 공유</button>
+    </div>
+
+    <textarea id="ocr" rows="15" placeholder="이미지를 업로드하고 실행하면 분석된 텍스트가 조립됩니다."></textarea>
     <button onclick="app.viewFull('교정된 OCR 결과', 'ocr')">전체보기</button>
   </div>
 
@@ -181,7 +197,7 @@ img{
   <div class="modal-content">
     <div class="modal-header">
       <h3 id="modalTitle">타이틀</h3>
-      <button class="close-btn" onclick="app.closeModal()">닫기</button>
+      <button style="background:#ff4f4f; margin-top:0;" onclick="app.closeModal()">닫기</button>
     </div>
     <div id="fullViewModalBody" class="modal-body"></div>
   </div>
@@ -192,7 +208,7 @@ img{
 <script>
 
 /* =========================
-   OCR ENGINE (단일 워커 풀 안정화 시스템)
+   OCR ENGINE
 ========================= */
 class OCR {
   constructor(){
@@ -201,10 +217,7 @@ class OCR {
   }
 
   async init(){
-    // 스케줄러 락 현상을 방지하기 위해 단일 고성능 워커 구조로 안정화
-    this.worker = await Tesseract.createWorker("kor+eng+jpn+chi_sim+chi_tra", 1, {
-      logger: m => console.log(m)
-    });
+    this.worker = await Tesseract.createWorker("kor+eng+jpn+chi_sim+chi_tra", 1);
     this.ready = true;
   }
 
@@ -216,98 +229,32 @@ class OCR {
 }
 
 /* =========================
-   SIMPLE AI (LOCAL) - 가변 분할 및 격자 융합 엔진
+   SIMPLE AI (LOCAL) - 컴팩트 밀착 융합 로직
 ========================= */
 class AI {
 
-  // 안전한 스캔을 위해 이미지 비율 맞춤 가변 블록 분할 알고리즘 적용
-  static async processImageByTiling(imgElement, ocrInstance, onProgress) {
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    
-    const imgWidth = imgElement.naturalWidth;
-    const imgHeight = imgElement.naturalHeight;
-    
-    canvas.width = imgWidth;
-    canvas.height = imgHeight;
-    ctx.drawImage(imgElement, 0, 0);
+  static async processCompactLayout(imgElement, ocrInstance, onProgress) {
+    onProgress(30);
+    const result = await ocrInstance.run(imgElement);
+    onProgress(70);
 
-    // [과분할 락 방지 고정] 병목 현상 차단 및 글자 잘림 방지를 위해 가변 블록 크기 최적화 (가로 2분할, 세로 4분할 구조)
-    const numCols = imgWidth > 1000 ? 3 : 2;
-    const numRows = imgHeight > 1500 ? 5 : 4;
-    
-    const tileWidth = Math.ceil(imgWidth / numCols);
-    const tileHeight = Math.ceil(imgHeight / numRows);
+    if (!result || !result.words) return "";
 
-    let chunks = [];
-    for (let r = 0; r < numRows; r++) {
-      for (let c = 0; c < numCols; c++) {
-        let x = c * tileWidth;
-        let y = r * tileHeight;
-        let w = (x + tileWidth > imgWidth) ? (imgWidth - x) : tileWidth;
-        let h = (y + tileHeight > imgHeight) ? (imgHeight - y) : tileHeight;
-        chunks.push({ x, y, w, h });
-      }
-    }
+    let words = result.words.map(w => {
+      let txt = w.text.trim();
+      if (/^[\\\/•\.\*\-\+\s¢®©=\|?:\(\)\[\]{}’”"‘'<>«»;_·~^`]{1,4}$/.test(txt)) txt = "";
+      return {
+        text: txt,
+        x0: w.bbox.x0,
+        y0: w.bbox.y0,
+        h: w.bbox.y1 - w.bbox.y0
+      };
+    }).filter(w => w.text.length > 0);
 
-    let allWords = [];
-    const totalChunks = chunks.length;
+    if (words.length === 0) return "";
 
-    for (let i = 0; i < totalChunks; i++) {
-      const chunk = chunks[i];
-      
-      const chunkCanvas = document.createElement("canvas");
-      chunkCanvas.width = chunk.w;
-      chunkCanvas.height = chunk.h;
-      const chunkCtx = chunkCanvas.getContext("2d");
-      
-      chunkCtx.drawImage(canvas, chunk.x, chunk.y, chunk.w, chunk.h, 0, 0, chunk.w, chunk.h);
-      
-      try {
-        const result = await ocrInstance.run(chunkCanvas);
-        
-        if (result && result.words) {
-          result.words.forEach(w => {
-            let txt = w.text.trim();
-            // 무의미한 노이즈 완전 제거 필터
-            if (/^[\\\/•\.\*\-\+\s¢®©=\|?:\(\)\[\]{}’”"‘'<>«»;_·~^`]{1,4}$/.test(txt)) txt = "";
-            
-            if (txt.length > 0) {
-              allWords.push({
-                text: txt,
-                x0: chunk.x + w.bbox.x0,
-                x1: chunk.x + w.bbox.x1,
-                y0: chunk.y + w.bbox.y0,
-                y1: chunk.y + w.bbox.y1,
-                h: w.bbox.y1 - w.bbox.y0
-              });
-            }
-          });
-        }
-      } catch (e) {
-        console.error("부분 스캔 실패 무시: ", e);
-      }
-
-      let percent = Math.floor(((i + 1) / totalChunks) * 100);
-      onProgress(percent);
-    }
-
-    if (allWords.length === 0) {
-      // 분할 인식이 완전히 실패할 경우를 대비해 원본 통 스캔 예외 처리 안전장치 작동
-      const fallback = await ocrInstance.run(imgElement);
-      if(!fallback || !fallback.words) return "";
-      allWords = fallback.words.map(w => ({
-        text: w.text.trim(), x0: w.bbox.x0, x1: w.bbox.x1, y0: w.bbox.y0, y1: w.bbox.y1, h: w.bbox.y1 - w.bbox.y0
-      }));
-    }
-
-    return this.buildFinalGrid(allWords);
-  }
-
-  // 조각 수집된 전체 데이터를 줄바꿈 및 간격 복원 조립
-  static buildFinalGrid(words) {
     let avgHeight = words.reduce((sum, w) => sum + w.h, 0) / words.length;
-    let rowThreshold = avgHeight * 0.55;
+    let rowThreshold = avgHeight * 0.5;
 
     let rows = [];
     words.sort((a, b) => a.y0 - b.y0);
@@ -329,45 +276,44 @@ class AI {
 
     rows.sort((a, b) => a[0].y0 - b[0].y0);
 
-    let minX = Math.min(...rows.map(r => r[0].x0));
-    let maxX = Math.max(...rows.map(r => r[r.length - 1].x1));
-    let docWidth = maxX - minX;
-    
-    // 표 형식 가독성 배치를 위한 자동 열 폭(85자) 할당
-    let maxCharCols = 85; 
-
     let gridLines = rows.map(row => {
       let lineStr = "";
-      let lastCharIdx = 0;
-
-      row.forEach(w => {
-        let relativeX = w.x0 - minX;
-        let targetCharIdx = Math.floor((relativeX / docWidth) * maxCharCols);
-
-        if (targetCharIdx > lastCharIdx) {
-          lineStr += " ".repeat(targetCharIdx - lastCharIdx);
-        }
-
+      
+      for(let i=0; i<row.length; i++) {
+        let w = row[i];
         let cleanedWord = w.text;
-        // 빈출 깨짐 현상 문맥 결합 보정
+
         cleanedWord = cleanedWord.replace(/omy/g, "com")
                                  .replace(/할일을/g, "할 일을")
                                  .replace(/정학히/g, "정확히")
                                  .replace(/지시하기/g, "지시하기")
                                  .replace(/달사시/g, "달성 시");
 
-        lineStr += cleanedWord + " ";
-        lastCharIdx = targetCharIdx + cleanedWord.length + 1;
-      });
-
+        if (i === 0) {
+          lineStr += cleanedWord;
+        } else {
+          let prevW = row[i-1];
+          let distance = w.x0 - (prevW.x0 + (prevW.text.length * (avgHeight * 0.5)));
+          
+          if (distance > avgHeight * 1.2) {
+            lineStr += "   |   " + cleanedWord; 
+          } else {
+            lineStr += " " + cleanedWord;
+          }
+        }
+      }
       return lineStr;
     });
 
-    return gridLines
-      .join("\n")
+    onProgress(100);
+    return this.cleanupOutput(gridLines.join("\n"));
+  }
+
+  static cleanupOutput(text) {
+    return text
       .split("\n")
-      .map(line => line.replace(/\s+[\-_\|]\s*$/g, ""))
-      .filter(line => line.trim().length > 0)
+      .map(line => line.replace(/^[\[\]_\|\s]+$/g, "").trim())
+      .filter(line => line.length > 0)
       .join("\n");
   }
 
@@ -387,7 +333,7 @@ class AI {
 
   static title(text){
     const firstLine = text.split("\n")[0];
-    return firstLine ? firstLine.trim().slice(0, 30) : "스캔 완료 분석 문서";
+    return firstLine ? firstLine.slice(0, 30) : "스캔 데이터 문서";
   }
 }
 
@@ -406,6 +352,7 @@ class App {
     this.progressContainer = document.getElementById("progressContainer");
     this.progressBar = document.getElementById("progressBar");
     this.progressText = document.getElementById("progressText");
+    this.assistToolbar = document.getElementById("assistToolbar");
 
     this.modal = document.getElementById("fullViewModal");
     this.modalBody = document.getElementById("fullViewModalBody");
@@ -425,12 +372,9 @@ class App {
       reader.onload = (ev)=>{
         this.preview.src = ev.target.result;
         this.currentImage = ev.target.result;
+        this.assistToolbar.style.display = "none"; // 새 파일 로드 시 툴바 초기화
       };
       reader.readAsDataURL(file);
-    });
-
-    this.modal.addEventListener("click", (e) => {
-      if(e.target === this.modal) this.closeModal();
     });
   }
 
@@ -447,11 +391,11 @@ class App {
       try {
         this.progressContainer.style.display = "block";
         this.progressBar.style.width = "0%";
-        this.progressText.innerText = "이미지 가변 조각 분석 중... (0%)";
+        this.assistToolbar.style.display = "none";
 
-        const processedText = await AI.processImageByTiling(img, this.ocr, (percent) => {
+        const processedText = await AI.processCompactLayout(img, this.ocr, (percent) => {
           this.progressBar.style.width = percent + "%";
-          this.progressText.innerText = `이미지 가변 조각 분석 중... (${percent}%)`;
+          this.progressText.innerText = `데이터 분석 결합 중... (${percent}%)`;
         });
 
         this.ocrEl.value = processedText;
@@ -459,14 +403,53 @@ class App {
         this.keywordEl.value = AI.keywords(processedText);
         this.titleEl.value = AI.title(processedText);
         
+        // 스캔 성공 시 갤럭시 스타일 어시스트 툴바 즉시 표출
+        if (processedText.trim().length > 0) {
+          this.assistToolbar.style.display = "flex";
+        }
+
         setTimeout(() => { this.progressContainer.style.display = "none"; }, 500);
 
       } catch(err){
         console.error(err);
-        alert("OCR 실행 중 오류가 발생했습니다.");
+        alert("OCR 실행 중 에러가 발생했습니다.");
         this.progressContainer.style.display = "none";
       }
     };
+  }
+
+  /* 갤럭시 어시스트 기능 1: 클립보드 복사 */
+  async copyToClipboard() {
+    const text = this.ocrEl.value;
+    if (!text.trim()) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      alert("추출된 전체 텍스트가 클립보드에 복사되었습니다!");
+    } catch (err) {
+      // 구형 웹뷰 호환성 대응 백업 구조
+      this.ocrEl.select();
+      document.execCommand('copy');
+      alert("텍스트가 복사되었습니다.");
+    }
+  }
+
+  /* 갤럭시 어시스트 기능 2: 모바일 공유 시스템 연동 */
+  async shareText() {
+    const text = this.ocrEl.value;
+    if (!text.trim()) return;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: this.titleEl.value || '추출된 문서',
+          text: text
+        });
+      } catch (err) {
+        console.log('공유 취소 또는 에러:', err);
+      }
+    } else {
+      alert("현재 브라우저/환경에서는 웹 공유 API를 지원하지 않습니다. [전체 복사] 기능을 이용해 주세요.");
+    }
   }
 
   viewFull(title, elementId) {
@@ -475,7 +458,6 @@ class App {
       alert("표시할 내용이 없습니다.");
       return;
     }
-    
     document.getElementById("modalTitle").innerText = title;
     this.modalBody.innerText = targetElement.value;
     this.modal.style.display = "flex";
