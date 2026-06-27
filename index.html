@@ -3,9 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>OCR AI Studio v1.0</title>
-
-<link rel="manifest" id="manifestTag">
+<title>OCR AI Studio FULL</title>
 
 <style>
 :root{
@@ -16,13 +14,6 @@
   --border:#2a2f3a;
 }
 
-[data-theme="light"]{
-  --bg:#f5f6f8;
-  --panel:#fff;
-  --text:#111;
-  --border:#ddd;
-}
-
 *{box-sizing:border-box;font-family:system-ui;}
 body{
   margin:0;
@@ -31,7 +22,7 @@ body{
 }
 
 header{
-  padding:14px;
+  padding:12px;
   background:var(--panel);
   display:flex;
   justify-content:space-between;
@@ -42,19 +33,19 @@ header{
 .container{
   padding:12px;
   display:grid;
-  gap:12px;
+  gap:10px;
 }
 
 .card{
   background:var(--panel);
   border:1px solid var(--border);
-  border-radius:12px;
-  padding:12px;
+  border-radius:10px;
+  padding:10px;
 }
 
-textarea,input,select{
+textarea,input{
   width:100%;
-  padding:10px;
+  padding:8px;
   border-radius:8px;
   border:1px solid var(--border);
   background:transparent;
@@ -63,9 +54,9 @@ textarea,input,select{
 
 button{
   background:var(--accent);
-  color:#fff;
   border:none;
-  padding:8px 12px;
+  color:#fff;
+  padding:8px 10px;
   border-radius:8px;
   cursor:pointer;
 }
@@ -73,7 +64,7 @@ button{
 .row{
   display:grid;
   grid-template-columns:1fr 1fr;
-  gap:10px;
+  gap:8px;
 }
 
 @media(max-width:768px){
@@ -85,33 +76,21 @@ button{
 <body>
 
 <header>
-  <div>OCR AI Studio v1.0</div>
+  <div>OCR AI Studio FULL</div>
+  <button onclick="app.downloadSelf()">📥 HTML</button>
 </header>
 
 <div class="container">
 
-  <!-- AI 설정 -->
   <div class="card">
-    <select id="aiMode">
-      <option value="local">Local AI</option>
-      <option value="openai">OpenAI</option>
-      <option value="gemini">Gemini</option>
-    </select>
-    <input id="apiKey" placeholder="API Key (optional)">
+    <input type="file" id="file">
   </div>
 
-  <!-- 업로드 -->
-  <div class="card">
-    <input type="file" id="fileInput">
-  </div>
-
-  <!-- OCR -->
   <div class="card">
     <h3>OCR</h3>
     <textarea id="ocr"></textarea>
   </div>
 
-  <!-- AI 결과 -->
   <div class="card">
     <h3>Summary</h3>
     <textarea id="summary"></textarea>
@@ -127,12 +106,17 @@ button{
     <input id="title">
   </div>
 
-  <!-- 저장 -->
   <div class="card row">
     <button onclick="app.save()">Save</button>
     <button onclick="app.exportMD()">MD</button>
     <button onclick="app.exportTXT()">TXT</button>
     <button onclick="app.exportPDF()">PDF</button>
+  </div>
+
+  <div class="card">
+    <input id="search" placeholder="search">
+    <button onclick="app.search()">Search</button>
+    <div id="list"></div>
   </div>
 
 </div>
@@ -142,54 +126,14 @@ button{
 
 <script>
 
-/* ---------------- AI ---------------- */
-
-class LocalAI{
-  static summarize(t){
-    const s=t.split(/[.?\n]/).filter(Boolean);
-    return s.slice(0,3).join(". ");
-  }
-
-  static keywords(t){
-    const w=t.toLowerCase().match(/[a-z가-힣]{2,}/g)||[];
-    const f={};
-    w.forEach(x=>f[x]=(f[x]||0)+1);
-    return Object.entries(f).sort((a,b)=>b[1]-a[1]).slice(0,8).map(x=>x[0]).join(", ");
-  }
-
-  static title(t){
-    return t.split(/\n/)[0]?.slice(0,40)||"OCR Document";
-  }
-}
-
-class AIEngine{
-  constructor(){
-    this.mode="local";
-    this.key="";
-  }
-
-  setMode(m){this.mode=m;}
-  setKey(k){this.key=k;}
-
-  async summarize(t){
-    if(this.mode==="local") return LocalAI.summarize(t);
-    return LocalAI.summarize(t);
-  }
-
-  async keywords(t){return LocalAI.keywords(t);}
-  async title(t){return LocalAI.title(t);}
-}
-
 /* ---------------- OCR ---------------- */
-
 class OCR{
   constructor(onProgress){
     this.onProgress=onProgress;
-    this.worker=Tesseract.createWorker();
   }
 
   async init(){
-    await this.worker.load();
+    this.worker=await Tesseract.createWorker();
     await this.worker.loadLanguage("eng+kor");
     await this.worker.initialize("eng+kor");
   }
@@ -198,37 +142,51 @@ class OCR{
     const r=await this.worker.recognize(img,{},{
       logger:m=>{
         if(m.status==="recognizing text"){
-          this.onProgress(Math.round(m.progress*100));
+          this.onProgress?.(m.progress*100);
         }
       }
     });
-
     return r.data.text;
   }
 }
 
-/* ---------------- POST PROCESS ---------------- */
-
+/* ---------------- POST ---------------- */
 class Post{
-  static fix(t){
-    return t
-      .replace(/\n+/g,"\n")
+  static clean(t){
+    return (t||"")
       .replace(/-\n/g,"")
+      .replace(/\n+/g,"\n")
       .trim();
   }
 }
 
-/* ---------------- EXPORT ---------------- */
+/* ---------------- AI ---------------- */
+class AI{
+  static summary(t){
+    return t.split(/[.?\n]/).slice(0,3).join(".");
+  }
 
+  static keywords(t){
+    const w=t.toLowerCase().match(/[a-z가-힣]{2,}/g)||[];
+    const f={};
+    w.forEach(x=>f[x]=(f[x]||0)+1);
+    return Object.entries(f).sort((a,b)=>b[1]-a[1]).slice(0,8).map(x=>x[0]).join(",");
+  }
+
+  static title(t){
+    return t.split(/\n/)[0]?.slice(0,40)||"doc";
+  }
+}
+
+/* ---------------- EXPORT ---------------- */
 class Exporter{
   static md(t,o,s,k){
     const md=`# ${t}\n\n## OCR\n${o}\n\n## Summary\n${s}\n\n## Keywords\n${k}`;
-    this.download("doc.md",md,"text/markdown");
+    this.download("doc.md",md);
   }
 
   static txt(t,o,s,k){
-    const txt=`${t}\n\n${o}\n\n${s}\n\n${k}`;
-    this.download("doc.txt",txt,"text/plain");
+    this.download("doc.txt",`${t}\n\n${o}\n\n${s}\n\n${k}`);
   }
 
   static pdf(t,o,s,k){
@@ -237,8 +195,8 @@ class Exporter{
     html2pdf().from(el).save("doc.pdf");
   }
 
-  static download(n,c,t){
-    const b=new Blob([c],{type:t});
+  static download(n,c){
+    const b=new Blob([c],{type:"text/plain"});
     const u=URL.createObjectURL(b);
     const a=document.createElement("a");
     a.href=u;a.download=n;a.click();
@@ -246,51 +204,53 @@ class Exporter{
 }
 
 /* ---------------- DB ---------------- */
-
 class DB{
-  constructor(){
-    this.name="ocr_v1";
-    this.store="docs";
-  }
-
   async init(){
     return new Promise(res=>{
-      const r=indexedDB.open(this.name,1);
+      const r=indexedDB.open("ocr_full",1);
       r.onupgradeneeded=e=>{
-        e.target.result.createObjectStore(this.store,{keyPath:"id",autoIncrement:true});
+        e.target.result.createObjectStore("docs",{keyPath:"id",autoIncrement:true});
       };
       r.onsuccess=e=>{this.db=e.target.result;res();}
     });
   }
 
   add(d){
-    const tx=this.db.transaction(this.store,"readwrite");
-    tx.objectStore(this.store).add(d);
+    const tx=this.db.transaction("docs","readwrite");
+    tx.objectStore("docs").add({...d,date:Date.now()});
+  }
+
+  getAll(){
+    return new Promise(res=>{
+      const tx=this.db.transaction("docs","readonly");
+      const r=tx.objectStore("docs").getAll();
+      r.onsuccess=()=>res(r.result);
+    });
   }
 }
 
 /* ---------------- APP ---------------- */
-
 class App{
+
   constructor(){
 
-    this.file=document.getElementById("fileInput");
+    this.file=document.getElementById("file");
     this.ocr=document.getElementById("ocr");
-    this.sum=document.getElementById("summary");
-    this.key=document.getElementById("keywords");
+    this.summary=document.getElementById("summary");
+    this.keywords=document.getElementById("keywords");
     this.title=document.getElementById("title");
+    this.list=document.getElementById("list");
+    this.searchBox=document.getElementById("search");
 
-    this.ai=new AIEngine();
     this.ocrEngine=new OCR(()=>{});
-
     this.db=new DB();
 
     this.init();
   }
 
   async init(){
-    await this.db.init();
     await this.ocrEngine.init();
+    await this.db.init();
 
     this.file.onchange=e=>this.run(e.target.files[0]);
   }
@@ -298,48 +258,70 @@ class App{
   async run(file){
 
     const img=new Image();
-    const reader=new FileReader();
+    const r=new FileReader();
 
-    reader.onload=e=>{
-      img.src=e.target.result;
-    };
+    r.onload=e=>img.src=e.target.result;
 
     img.onload=async()=>{
 
       const raw=await this.ocrEngine.run(img);
-      const clean=Post.fix(raw);
+      const clean=Post.clean(raw);
 
       this.ocr.value=clean;
 
-      this.sum.value=await this.ai.summarize(clean);
-      this.key.value=await this.ai.keywords(clean);
-      this.title.value=await this.ai.title(clean);
+      this.summary.value=AI.summary(clean);
+      this.keywords.value=AI.keywords(clean);
+      this.title.value=AI.title(clean);
     };
 
-    reader.readAsDataURL(file);
+    r.readAsDataURL(file);
   }
 
   save(){
     this.db.add({
       title:this.title.value,
       ocr:this.ocr.value,
-      summary:this.sum.value,
-      keywords:this.key.value,
-      date:Date.now()
+      summary:this.summary.value,
+      keywords:this.keywords.value
     });
     alert("saved");
   }
 
-  exportMD(){
-    Exporter.md(this.title.value,this.ocr.value,this.sum.value,this.key.value);
+  async search(){
+    const list=await this.db.getAll();
+    const k=this.searchBox.value;
+
+    this.list.innerHTML="";
+
+    list.filter(d=>
+      d.title.includes(k)||
+      d.ocr.includes(k)
+    ).forEach(d=>{
+      const div=document.createElement("div");
+      div.innerHTML=`<b>${d.title}</b>`;
+      div.onclick=()=>{
+        this.title.value=d.title;
+        this.ocr.value=d.ocr;
+        this.summary.value=d.summary;
+        this.keywords.value=d.keywords;
+      };
+      this.list.appendChild(div);
+    });
   }
 
-  exportTXT(){
-    Exporter.txt(this.title.value,this.ocr.value,this.sum.value,this.key.value);
-  }
+  exportMD(){Exporter.md(this.title.value,this.ocr.value,this.summary.value,this.keywords.value);}
+  exportTXT(){Exporter.txt(this.title.value,this.ocr.value,this.summary.value,this.keywords.value);}
+  exportPDF(){Exporter.pdf(this.title.value,this.ocr.value,this.summary.value,this.keywords.value);}
 
-  exportPDF(){
-    Exporter.pdf(this.title.value,this.ocr.value,this.sum.value,this.key.value);
+  downloadSelf(){
+    const html="<!doctype html>\n"+document.documentElement.outerHTML;
+    const blob=new Blob([html],{type:"text/html"});
+    const url=URL.createObjectURL(blob);
+
+    const a=document.createElement("a");
+    a.href=url;
+    a.download="ocr_ai_full.html";
+    a.click();
   }
 }
 
