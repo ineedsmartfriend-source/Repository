@@ -1,240 +1,351 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ 초정밀 지능형 구조 복원 시스템 (V11 END-GAME)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap');
-        body { font-family: 'Pretendard', sans-serif; background-color: #0b0f19; }
-        .code-font { font-family: 'Fira Code', monospace; }
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: #0f172a; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
-        .markdown-zone h1 { font-size: 1.5rem; font-weight: 800; color: #f8fafc; margin-top: 1.5rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
-        .markdown-zone h2 { font-size: 1.25rem; font-weight: 700; color: #e2e8f0; margin-top: 1.25rem; margin-bottom: 0.5rem; }
-        .markdown-zone p { font-size: 0.925rem; line-height: 1.75; color: #cbd5e1; margin-bottom: 0.75rem; }
-        .markdown-zone ul { margin-bottom: 1rem; padding-left: 1.25rem; }
-        .markdown-zone li { font-size: 0.9rem; line-height: 1.7; color: #94a3b8; list-style-type: disc; margin-bottom: 0.25rem; }
-        .markdown-zone strong { color: #38bdf8; font-weight: 700; }
-    </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>OCR AI Studio v1.0</title>
+
+<link rel="manifest" id="manifestTag">
+
+<style>
+:root{
+  --bg:#0f1115;
+  --panel:#171a21;
+  --text:#e6e6e6;
+  --accent:#4f8cff;
+  --border:#2a2f3a;
+}
+
+[data-theme="light"]{
+  --bg:#f5f6f8;
+  --panel:#fff;
+  --text:#111;
+  --border:#ddd;
+}
+
+*{box-sizing:border-box;font-family:system-ui;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+}
+
+header{
+  padding:14px;
+  background:var(--panel);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  border-bottom:1px solid var(--border);
+}
+
+.container{
+  padding:12px;
+  display:grid;
+  gap:12px;
+}
+
+.card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:12px;
+}
+
+textarea,input,select{
+  width:100%;
+  padding:10px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--text);
+}
+
+button{
+  background:var(--accent);
+  color:#fff;
+  border:none;
+  padding:8px 12px;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+.row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+@media(max-width:768px){
+  .row{grid-template-columns:1fr;}
+}
+</style>
 </head>
-<body class="text-slate-200 h-screen flex flex-col p-4 overflow-hidden">
 
-    <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
-        <div>
-            <h1 class="text-base font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-500 bg-clip-text text-transparent">⚡ 초정밀 지능형 구조 복원 시스템 (V11 END-GAME)</h1>
-            <p class="text-[11px] text-slate-500 font-mono mt-0.5">Automated Context Alignment & OCR Error Purifier</p>
-        </div>
-        <button id="reset-db" class="text-xs text-slate-500 hover:text-rose-400 transition-colors">전체 초기화</button>
-    </div>
+<body>
 
-    <div class="my-4 shrink-0 relative group">
-        <div class="w-full h-20 bg-slate-900/60 border-2 border-dashed border-slate-800 group-hover:border-sky-500/50 rounded-2xl transition-all flex flex-col items-center justify-center gap-1 cursor-pointer">
-            <span class="text-xl" id="upload-icon">✨</span>
-            <span id="upload-text" class="text-xs font-semibold text-slate-400 group-hover:text-sky-400">여기를 눌러 대상 이미지 선택 (자동 결함 교정 가동)</span>
-        </div>
-        <input type="file" id="ocr-input" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer">
-    </div>
+<header>
+  <div>OCR AI Studio v1.0</div>
+</header>
 
-    <div id="status-msg" class="mb-4 text-xs bg-slate-900 border border-slate-800 py-2.5 px-4 rounded-xl text-slate-400 shrink-0 flex items-center gap-2">
-        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span>시스템 준비 완료. 중복 인식 및 자모음 찢어짐 오차를 실시간으로 조립 정제합니다.</span>
-    </div>
+<div class="container">
 
-    <div id="workspace" class="flex-1 overflow-y-auto custom-scroll space-y-4 pr-1">
-        <div id="empty-view" class="h-full flex flex-col items-center justify-center text-slate-600 text-xs py-12">
-            <p>분석된 노트가 없습니다.</p>
-            <p class="mt-1 text-slate-700">이미지를 업로드하면 난해한 텍스트 파편을 100% 자동 교정하여 렌더링합니다.</p>
-        </div>
-    </div>
+  <!-- AI 설정 -->
+  <div class="card">
+    <select id="aiMode">
+      <option value="local">Local AI</option>
+      <option value="openai">OpenAI</option>
+      <option value="gemini">Gemini</option>
+    </select>
+    <input id="apiKey" placeholder="API Key (optional)">
+  </div>
 
-    <script>
-        const ocrInput = document.getElementById('ocr-input');
-        const uploadText = document.getElementById('upload-text');
-        const uploadIcon = document.getElementById('upload-icon');
-        const statusMsg = document.getElementById('status-msg');
-        const workspace = document.getElementById('workspace');
-        const emptyView = document.getElementById('empty-view');
-        const resetDb = document.getElementById('reset-db');
+  <!-- 업로드 -->
+  <div class="card">
+    <input type="file" id="fileInput">
+  </div>
 
-        let dataStorage = JSON.parse(localStorage.getItem('v11_perfect_memos')) || [];
-        refreshView();
+  <!-- OCR -->
+  <div class="card">
+    <h3>OCR</h3>
+    <textarea id="ocr"></textarea>
+  </div>
 
-        ocrInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+  <!-- AI 결과 -->
+  <div class="card">
+    <h3>Summary</h3>
+    <textarea id="summary"></textarea>
+  </div>
 
-            try {
-                updateStatus("⏳ 고상태 픽셀 대비 정규화 및 노이즈 소거 필터 적용 중...", "animate-pulse text-amber-400");
-                uploadText.innerText = "분석 엔진 가동 중...";
-                ocrInput.disabled = true;
+  <div class="card">
+    <h3>Keywords</h3>
+    <textarea id="keywords"></textarea>
+  </div>
 
-                const imageURL = URL.createObjectURL(file);
-                const worker = await Tesseract.createWorker('kor+eng');
-                const result = await worker.recognize(imageURL);
-                const { lines } = result.data;
-                await worker.terminate();
+  <div class="card">
+    <h3>Title</h3>
+    <input id="title">
+  </div>
 
-                if (!lines || lines.length === 0) {
-                    throw new Error("유효한 텍스트 궤적을 검출하지 못했습니다.");
-                }
+  <!-- 저장 -->
+  <div class="card row">
+    <button onclick="app.save()">Save</button>
+    <button onclick="app.exportMD()">MD</button>
+    <button onclick="app.exportTXT()">TXT</button>
+    <button onclick="app.exportPDF()">PDF</button>
+  </div>
 
-                // [가장 중요한 단계: 난해한 오인식 및 찢어짐 현상 종결 필터]
-                let purifiedLines = [];
-                lines.forEach(lineObj => {
-                    let text = lineObj.text.trim();
-                    if (!text || text.length < 2) return;
+</div>
 
-                    // 1. 의미 없는 단순 특수기호 단독 나열 소거
-                    if (/^[\\|¦_~+=<>`^#\-*•@]+$/.test(text)) return;
-                    
-                    // 2. 고질적인 OCR 중복어 및 단어 반복 버그 즉시 교정 (예: 일주일일주일 -> 일주일)
-                    text = text.replace(/([가-힣a-zA-Z0-9]{2,})\1/g, '$1');
-                    text = text.replace(/([가-힣a-zA-Z0-9]{2,})\s+\1/g, '$1');
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-                    // 3. 자음/모음이 찢어져서 배치된 오류 결합
-                    text = text.replace(/마\s*IA\s*터/g, '마스터')
-                               .replace(/방\s*법\s*방\s*법/g, '방법')
-                               .replace(/구\s*글\s*제\s*J/g, '구글 제미나이')
-                               .replace(/Geminia/gi, 'Gemini')
-                               .replace(/하\s*는\s*는/g, '하는');
+<script>
 
-                    // 4. 낙서 및 유령 파편 데이터 제거
-                    if (/^(000|EB|HAR|TY|AEE|Hof)$/.test(text)) return;
+/* ---------------- AI ---------------- */
 
-                    purifiedLines.push(text);
-                });
+class LocalAI{
+  static summarize(t){
+    const s=t.split(/[.?\n]/).filter(Boolean);
+    return s.slice(0,3).join(". ");
+  }
 
-                // 최종 렌더링을 위한 마크다운 서식 빌더 가동
-                const structuredHTML = compileToStructuredHTML(purifiedLines);
+  static keywords(t){
+    const w=t.toLowerCase().match(/[a-z가-힣]{2,}/g)||[];
+    const f={};
+    w.forEach(x=>f[x]=(f[x]||0)+1);
+    return Object.entries(f).sort((a,b)=>b[1]-a[1]).slice(0,8).map(x=>x[0]).join(", ");
+  }
 
-                const memoPayload = {
-                    id: Date.now(),
-                    timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-                    rawText: purifiedLines.join('\n'),
-                    compiledHTML: structuredHTML
-                };
+  static title(t){
+    return t.split(/\n/)[0]?.slice(0,40)||"OCR Document";
+  }
+}
 
-                dataStorage.unshift(memoPayload);
-                localStorage.setItem('v11_perfect_memos', JSON.stringify(dataStorage));
-                refreshView();
-                updateStatus("✅ 완전 교정 성공! 중복어 소거 및 텍스트 문맥 재배치가 완료되었습니다.", "text-emerald-400");
+class AIEngine{
+  constructor(){
+    this.mode="local";
+    this.key="";
+  }
 
-            } catch (err) {
-                console.error(err);
-                updateStatus(`❌ 오류 발생: ${err.message}`, "text-rose-400");
-            } finally {
-                ocrInput.disabled = false;
-                uploadText.innerText = "여기를 눌러 대상 이미지 선택 (자동 결함 교정 가동)";
-                ocrInput.value = "";
-            }
-        });
+  setMode(m){this.mode=m;}
+  setKey(k){this.key=k;}
 
-        // 계층 구조화 파싱 컴파일러
-        function compileToStructuredHTML(lines) {
-            let html = "";
-            let inList = false;
+  async summarize(t){
+    if(this.mode==="local") return LocalAI.summarize(t);
+    return LocalAI.summarize(t);
+  }
 
-            lines.forEach((line) => {
-                // 이정표/타이틀 처리 
-                if (line.startsWith('📌') || line.startsWith('📢') || line.startsWith('📍') || /^[0-9]{1,2}\./.test(line)) {
-                    if (inList) { html += "</ul>"; inList = false; }
-                    html += `<h2>${line}</h2>`;
-                    return;
-                }
-                
-                // 중요 키워드 강조가 포함된 핵심 타이틀 문맥
-                if (line.includes('이것만') || line.includes('Gemini') || line.includes('핵심')) {
-                    if (inList) { html += "</ul>"; inList = false; }
-                    html += `<h1>💡 ${line.replace(/[#\*]/g, '')}</h1>`;
-                    return;
-                }
+  async keywords(t){return LocalAI.keywords(t);}
+  async title(t){return LocalAI.title(t);}
+}
 
-                // 불릿 리스트 문맥 처리
-                if (line.startsWith('-') || line.startsWith('*') || line.startsWith('•') || /^\[[0-9]\]/.test(line)) {
-                    if (!inList) { html += `<ul class="list-disc pl-5 space-y-1">`; inList = true; }
-                    let cleanLi = line.replace(/^[\-\*•]\s*|^\s*|\[[0-9]\]\s*/, '');
-                    html += `<li>${cleanLi}</li>`;
-                } else {
-                    // 일반 단락
-                    if (inList) { html += "</ul>"; inList = false; }
-                    html += `<p>${line}</p>`;
-                }
-            });
+/* ---------------- OCR ---------------- */
 
-            if (inList) html += "</ul>";
-            return html;
-        };
+class OCR{
+  constructor(onProgress){
+    this.onProgress=onProgress;
+    this.worker=Tesseract.createWorker();
+  }
 
-        function updateStatus(msg, textClass) {
-            statusMsg.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-current ${textClass}"></span><span class="${textClass}">${msg}</span>`;
+  async init(){
+    await this.worker.load();
+    await this.worker.loadLanguage("eng+kor");
+    await this.worker.initialize("eng+kor");
+  }
+
+  async run(img){
+    const r=await this.worker.recognize(img,{},{
+      logger:m=>{
+        if(m.status==="recognizing text"){
+          this.onProgress(Math.round(m.progress*100));
         }
+      }
+    });
 
-        resetDb.addEventListener('click', () => {
-            if (dataStorage.length === 0) return;
-            if (confirm('모든 교정 데이터를 영구 삭제하고 시스템을 초기화하시겠습니까?')) {
-                dataStorage = [];
-                localStorage.removeItem('v11_perfect_memos');
-                refreshView();
-                updateStatus("🗑️ 모든 데이터 가공 내역이 안전하게 초기화되었습니다.", "text-slate-400");
-            }
-        });
+    return r.data.text;
+  }
+}
 
-        window.removeCard = function(id) {
-            dataStorage = dataStorage.filter(item => item.id !== id);
-            localStorage.setItem('v11_perfect_memos', JSON.stringify(dataStorage));
-            refreshView();
-        };
+/* ---------------- POST PROCESS ---------------- */
 
-        window.toggleRawView = function(id) {
-            const rawBox = document.getElementById(`raw-${id}`);
-            if (rawBox.classList.contains('hidden')) {
-                rawBox.classList.remove('hidden');
-            } else {
-                rawBox.classList.add('hidden');
-            }
-        };
+class Post{
+  static fix(t){
+    return t
+      .replace(/\n+/g,"\n")
+      .replace(/-\n/g,"")
+      .trim();
+  }
+}
 
-        function refreshView() {
-            const cards = workspace.querySelectorAll('.memo-card');
-            cards.forEach(c => c.remove());
+/* ---------------- EXPORT ---------------- */
 
-            if (dataStorage.length === 0) {
-                emptyView.style.display = 'flex';
-                return;
-            }
-            emptyView.style.display = 'none';
+class Exporter{
+  static md(t,o,s,k){
+    const md=`# ${t}\n\n## OCR\n${o}\n\n## Summary\n${s}\n\n## Keywords\n${k}`;
+    this.download("doc.md",md,"text/markdown");
+  }
 
-            dataStorage.forEach(item => {
-                const card = document.createElement('div');
-                card.className = "memo-card bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 relative shadow-xl transition-all hover:border-slate-700/50";
-                card.innerHTML = `
-                    <div class="flex justify-between items-center mb-4 border-b border-slate-800/60 pb-3">
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-mono px-2 py-0.5 bg-sky-950/80 text-sky-400 rounded-md border border-sky-900/50">PERFECT_ALIGN</span>
-                            <span class="text-[11px] text-slate-500">${item.timestamp} 복원 완료</span>
-                        </div>
-                        <button onclick="removeCard(${item.id})" class="text-xs text-slate-500 hover:text-rose-400 font-bold transition-colors">✕</button>
-                    </div>
+  static txt(t,o,s,k){
+    const txt=`${t}\n\n${o}\n\n${s}\n\n${k}`;
+    this.download("doc.txt",txt,"text/plain");
+  }
 
-                    <div class="markdown-zone bg-slate-950/40 p-5 rounded-xl border border-slate-950 shadow-inner select-text">
-                        ${item.compiledHTML}
-                    </div>
+  static pdf(t,o,s,k){
+    const el=document.createElement("div");
+    el.innerHTML=`<h1>${t}</h1><p>${o}</p><p>${s}</p><p>${k}</p>`;
+    html2pdf().from(el).save("doc.pdf");
+  }
 
-                    <div class="mt-3 flex justify-end">
-                        <button onclick="toggleRawView(${item.id})" class="text-[11px] text-slate-500 hover:text-slate-300 transition-colors">🔍 정제 전 줄바꿈 데이터 보기</button>
-                    </div>
-                    <div id="raw-${item.id}" class="hidden mt-3 p-3 bg-slate-950 border border-slate-800 rounded-lg text-[11px] text-slate-400 code-font white-space-pre-wrap break-all leading-relaxed">
-                        ${item.rawText.replace(/\n/g, '<br>')}
-                    </div>
-                `;
-                workspace.appendChild(card);
-            });
-        }
-    </script>
+  static download(n,c,t){
+    const b=new Blob([c],{type:t});
+    const u=URL.createObjectURL(b);
+    const a=document.createElement("a");
+    a.href=u;a.download=n;a.click();
+  }
+}
+
+/* ---------------- DB ---------------- */
+
+class DB{
+  constructor(){
+    this.name="ocr_v1";
+    this.store="docs";
+  }
+
+  async init(){
+    return new Promise(res=>{
+      const r=indexedDB.open(this.name,1);
+      r.onupgradeneeded=e=>{
+        e.target.result.createObjectStore(this.store,{keyPath:"id",autoIncrement:true});
+      };
+      r.onsuccess=e=>{this.db=e.target.result;res();}
+    });
+  }
+
+  add(d){
+    const tx=this.db.transaction(this.store,"readwrite");
+    tx.objectStore(this.store).add(d);
+  }
+}
+
+/* ---------------- APP ---------------- */
+
+class App{
+  constructor(){
+
+    this.file=document.getElementById("fileInput");
+    this.ocr=document.getElementById("ocr");
+    this.sum=document.getElementById("summary");
+    this.key=document.getElementById("keywords");
+    this.title=document.getElementById("title");
+
+    this.ai=new AIEngine();
+    this.ocrEngine=new OCR(()=>{});
+
+    this.db=new DB();
+
+    this.init();
+  }
+
+  async init(){
+    await this.db.init();
+    await this.ocrEngine.init();
+
+    this.file.onchange=e=>this.run(e.target.files[0]);
+  }
+
+  async run(file){
+
+    const img=new Image();
+    const reader=new FileReader();
+
+    reader.onload=e=>{
+      img.src=e.target.result;
+    };
+
+    img.onload=async()=>{
+
+      const raw=await this.ocrEngine.run(img);
+      const clean=Post.fix(raw);
+
+      this.ocr.value=clean;
+
+      this.sum.value=await this.ai.summarize(clean);
+      this.key.value=await this.ai.keywords(clean);
+      this.title.value=await this.ai.title(clean);
+    };
+
+    reader.readAsDataURL(file);
+  }
+
+  save(){
+    this.db.add({
+      title:this.title.value,
+      ocr:this.ocr.value,
+      summary:this.sum.value,
+      keywords:this.key.value,
+      date:Date.now()
+    });
+    alert("saved");
+  }
+
+  exportMD(){
+    Exporter.md(this.title.value,this.ocr.value,this.sum.value,this.key.value);
+  }
+
+  exportTXT(){
+    Exporter.txt(this.title.value,this.ocr.value,this.sum.value,this.key.value);
+  }
+
+  exportPDF(){
+    Exporter.pdf(this.title.value,this.ocr.value,this.sum.value,this.key.value);
+  }
+}
+
+const app=new App();
+
+</script>
+
 </body>
 </html>
-
