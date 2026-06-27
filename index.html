@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ MASTER-CLASS AI 지능형 종합 복원 메모장 V7</title>
+    <title>⚡ MASTER-CLASS AI 지능형 종합 복원 메모장 V8</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap');
         body {
             font-family: 'Pretendard', sans-serif;
             background-color: #030712;
@@ -15,51 +15,51 @@
         .ai-final-box {
             white-space: pre-wrap;
             word-break: break-all;
-            line-height: 1.75;
-            letter-spacing: -0.02em;
+            line-height: 1.8;
+            letter-spacing: -0.01em;
         }
         .custom-scrollbar::-webkit-scrollbar {
             width: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-            background: #0b1329;
+            background: #090f24;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #1f293d;
+            background: #1e293b;
             border-radius: 4px;
         }
     </style>
 </head>
-<body class="text-slate-100 flex flex-col h-screen p-4 overflow-hidden select-none">
+<body class="text-slate-200 flex flex-col h-screen p-4 overflow-hidden select-none">
 
     <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
         <div class="flex items-center gap-3">
             <span class="text-2xl">🦅</span>
             <div>
-                <h1 class="text-base font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-400 bg-clip-text text-transparent">초정밀 구조 수렴 메모 시스템 (V7 ULTRA)</h1>
-                <p class="text-[10px] text-slate-500 font-mono">Dynamic Row Convergence & Ultra Purifier Engine</p>
+                <h1 class="text-sm font-extrabold tracking-tight bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent">초정밀 인텔리전스 문맥 조립 시스템 (V8 ENGINE)</h1>
+                <p class="text-[10px] text-slate-500 font-mono">Bounding Box Overlap Binding & Text Stream Refiner</p>
             </div>
         </div>
-        <button id="clear-all-btn" class="text-xs text-slate-400 hover:text-rose-400 transition-colors bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-md">전체 초기화</button>
+        <button id="clear-all-btn" class="text-xs text-slate-400 hover:text-rose-400 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-md transition-colors">전체 초기화</button>
     </div>
 
     <div class="my-3 shrink-0 relative">
-        <div class="w-full h-16 bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800/80 rounded-xl shadow-2xl flex items-center justify-center gap-3 pointer-events-none">
-            <span class="text-xl text-cyan-400 animate-pulse">✨</span>
-            <span id="btn-text" class="text-xs font-bold text-slate-200">노트 · 표 이미지 분석 (세로 찢어짐 및 계단식 줄바꿈 완벽 해결)</span>
+        <div class="w-full h-16 bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-xl shadow-2xl flex items-center justify-center gap-3 pointer-events-none">
+            <span class="text-xl text-teal-400">✨</span>
+            <span id="btn-text" class="text-xs font-bold text-slate-300">이미지 분석 (계단식 강제 줄바꿈 및 파편화 현상 완전 복원)</span>
         </div>
         <input type="file" id="image-input" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
 
-        <div id="status-bar" class="text-[11px] text-center text-slate-400 py-2.5 bg-slate-900/50 rounded-lg mt-2 border border-slate-800/60 font-medium">
-            🟢 엔진 스탠바이 (글자 단차 오차를 수학적으로 계산하여 한눈에 보이도록 문장을 조립합니다)
+        <div id="status-bar" class="text-[11px] text-center text-slate-400 py-2 bg-slate-900/60 rounded-lg mt-2 border border-slate-800/50 font-medium">
+            🟢 엔진 대기 중 (단어의 세로 정렬 면적을 동적으로 매핑하여 완전한 문장 구조를 형성합니다)
         </div>
     </div>
 
     <div id="memo-list" class="flex-1 min-h-0 space-y-4 overflow-y-auto custom-scrollbar pr-1 pb-6">
         <div id="empty-state" class="h-full flex flex-col items-center justify-center text-slate-500 text-xs py-16 text-center">
-            <div class="text-3xl mb-3 opacity-40">📝</div>
-            <p class="font-bold text-slate-300 text-sm mb-1">고가독성 마스터 뷰 활성화 완료</p>
-            <p class="max-w-xs leading-relaxed text-slate-500">줄바꿈 오류가 가득한 캡처본을 가로 스트림으로 완벽히 결합하여 최상의 시각 정보로 변환합니다.</p>
+            <div class="text-3xl mb-3 opacity-30">📋</div>
+            <p class="font-bold text-slate-300 text-sm mb-1">인텔리전스 문맥 정제기 활성화</p>
+            <p class="max-w-xs leading-relaxed text-slate-500">한 글자씩 깨지고 아래로 길게 늘어지던 텍스트 파편들을 유기적으로 결합하여 읽기 쉬운 형태로 복원합니다.</p>
         </div>
     </div>
 
@@ -71,7 +71,7 @@
         const statusBar = document.getElementById('status-bar');
         const clearAllBtn = document.getElementById('clear-all-btn');
 
-        let memos = JSON.parse(localStorage.getItem('ai_master_v7_memos')) || [];
+        let memos = JSON.parse(localStorage.getItem('ai_master_v8_memos')) || [];
         renderMemos();
 
         imageInput.addEventListener('change', async (e) => {
@@ -79,8 +79,8 @@
             if (!file) return;
 
             try {
-                statusBar.innerHTML = "⏳ <span class='text-amber-400 font-bold'>[1/2] 고급 그래픽 전처리 스케일링 가동 중...</span>";
-                btnText.innerText = "이미지 최적화 중...";
+                statusBar.innerHTML = "⏳ <span class='text-amber-400 font-bold'>[1/2] 이미지 해상도 보정 및 노이즈 소거 중...</span>";
+                btnText.innerText = "이미지 분석 가동...";
                 imageInput.disabled = true;
 
                 const img = await new Promise((resolve) => {
@@ -99,18 +99,18 @@
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0);
 
-                // 이미지 선명도 극대화 픽셀 필터링
+                // 고강도 문맥 추출용 이진화 필터
                 const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const data = imgData.data;
                 for (let i = 0; i < data.length; i += 4) {
                     let gray = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
-                    let v = (gray > 140) ? 255 : 0; 
+                    let v = (gray > 130) ? 255 : 0; 
                     data[i] = v; data[i+1] = v; data[i+2] = v;
                 }
                 ctx.putImageData(imgData, 0, 0);
 
-                statusBar.innerHTML = "⏳ <span class='text-cyan-400 font-bold'>[2/2] 동적 유연 행 수렴 연산 및 유령 기호 삭제 중...</span>";
-                btnText.innerText = "단차 정렬 메커니즘 연산 중...";
+                statusBar.innerHTML = "⏳ <span class='text-cyan-400 font-bold'>[2/2] 면적 겹침 알고리즘 연산 및 텍스트 바인딩 중...</span>";
+                btnText.innerText = "문장 동적 병합 중...";
 
                 const worker = await Tesseract.createWorker('kor+eng');
                 const result = await worker.recognize(canvas);
@@ -118,41 +118,52 @@
                 await worker.terminate();
 
                 if (!words || words.length === 0) {
-                    statusBar.innerText = "❌ 문자를 검출하지 못했습니다. 선명한 이미지를 사용해주세요.";
+                    statusBar.innerText = "❌ 이미지 내에서 유효한 텍스트를 인식하지 못했습니다.";
                     resetInput();
                     return;
                 }
 
                 const imgWidth = canvas.width;
                 const rows = [];
-                // 고해상도 및 저해상도 이미지의 단차를 모두 흡수할 수 있는 가변 마진 공식 적용
-                const rowThreshold = Math.max(22, img.height * 0.024); 
 
-                // [핵심 해결책: 단차 오류를 잡아내는 지능형 행 수렴 프로세스]
+                // [핵심 해결책: 세로 찢어짐 현상을 원천 방지하는 면적 오버랩 분석법]
                 words.forEach(word => {
                     let text = word.text.trim();
                     if (!text) return;
 
-                    // 가독성을 해치는 가비지 특수 파편 문자 원천 필터링
+                    // 흐릿한 잔해물 및 깨진 노이즈 문자 필터링
                     if (/^[\\|¦_~+=<>`^'""\s\[\](){}:;,\-–—.]+$/.test(text) && text.length <= 1) return;
 
-                    let yCenter = word.bbox.y0 + (word.bbox.y1 - word.bbox.y0) / 2;
-                    // 기존에 등록된 행들 중 높이 차이가 임계값 이내인 행을 통합 검색
-                    let matchedRow = rows.find(r => Math.abs(r.yCenter - yCenter) < rowThreshold);
+                    let wY0 = word.bbox.y0;
+                    let wY1 = word.bbox.y1;
+                    let wHeight = wY1 - wY0;
+
+                    // 기존 행 중에서 현재 단어와 세로 높이가 35% 이상 겹치는 행을 탐색
+                    let matchedRow = rows.find(row => {
+                        let overlapY0 = Math.max(row.y0, wY0);
+                        let overlapY1 = Math.min(row.y1, wY1);
+                        let overlapHeight = overlapY1 - overlapY0;
+                        
+                        if (overlapHeight > 0) {
+                            let minH = Math.min(row.y1 - row.y0, wHeight);
+                            return (overlapHeight / minH) > 0.35; // 35% 이상 오버랩 시 동일 선상으로 간주
+                        }
+                        return false;
+                    });
 
                     if (matchedRow) {
                         matchedRow.words.push(word);
-                        // 수렴된 행의 중심값을 유동적으로 업데이트
-                        matchedRow.yCenter = (matchedRow.yCenter * (matchedRow.words.length - 1) + yCenter) / matchedRow.words.length;
+                        matchedRow.y0 = Math.min(matchedRow.y0, wY0);
+                        matchedRow.y1 = Math.max(matchedRow.y1, wY1);
                     } else {
-                        rows.push({ yCenter: yCenter, words: [word] });
+                        rows.push({ y0: wY0, y1: wY1, words: [word] });
                     }
                 });
 
-                // 상단 행부터 순서대로 정렬
-                rows.sort((a, b) => a.yCenter - b.yCenter);
+                // 상단 행부터 하단 행 순으로 정렬
+                rows.sort((a, b) => a.y0 - b.y0);
 
-                // 구조 분석 (표 형태인지 유연한 줄글 형태인지 판별)
+                // 표 구조 탐지 변수
                 let totalGaps = 0;
                 let wideGapCount = 0;
                 let validWordPairs = 0;
@@ -166,10 +177,10 @@
                     }
                 });
 
-                const isTableStructure = validWordPairs > 0 && (wideGapCount / validWordPairs > 0.2);
+                const isTableStructure = validWordPairs > 0 && (wideGapCount / validWordPairs > 0.18);
                 let finalLines = [];
 
-                // 문장 복원 및 정렬 스트림
+                // 문장 가로 흐름 스트림 재조립
                 rows.forEach(row => {
                     row.words.sort((a, b) => a.bbox.x0 - b.bbox.x0);
                     
@@ -189,11 +200,10 @@
                                     lineText += " ";
                                 }
                             } else {
-                                // 일반 기획서/노트의 경우 세로로 찢어지지 않도록 스페이스 최적화
-                                if (gapRatio > 0.03) {
+                                if (gapRatio > 0.025) {
                                     lineText += " ";
-                                } else if (gapRatio < 0.006) {
-                                    lineText += ""; // 영문-한글 번역 파편 밀착 결합
+                                } else if (gapRatio < 0.005) {
+                                    lineText += ""; // 영문/숫자와 한글 찢어짐 강제 밀착 결합
                                 } else {
                                     lineText += " ";
                                 }
@@ -204,19 +214,20 @@
 
                     let cleanedLine = lineText.trim();
                     
-                    // 불필요한 공백 괄호 및 기호 파편 정규식 완전 청소
+                    // 정규식을 통한 유령 가비지 문자 청소
                     cleanedLine = cleanedLine.replace(/\[\s*\|\s*\]/g, '');
                     cleanedLine = cleanedLine.replace(/\[\s*\]/g, '');
                     cleanedLine = cleanedLine.replace(/\s*\|\s*$/g, '');
                     cleanedLine = cleanedLine.replace(/^\s*\|\s*/g, '');
 
-                    // 가독성을 증진시키는 불릿 포인트 보정
+                    // 가독성 극대화를 위한 문장 첫머리 데코레이션 보정
                     if (/^[•*▪️-]\s*/.test(cleanedLine)) {
                         cleanedLine = "🔹 " + cleanedLine.replace(/^[•*▪️-]\s*/, '');
                     } else if (/^[0-9]{1,2}\s+/.test(cleanedLine) && !isTableStructure) {
                         cleanedLine = "📍 " + cleanedLine;
                     }
 
+                    // 최소 글자 수 이상 유효 조건 충족 시 행 추가
                     if (cleanedLine.replace(/[|\s]/g, '').length > 1) {
                         finalLines.push(cleanedLine);
                     }
@@ -233,16 +244,16 @@
                     };
 
                     memos.unshift(newMemo);
-                    localStorage.setItem('ai_master_v7_memos', JSON.stringify(memos));
+                    localStorage.setItem('ai_master_v8_memos', JSON.stringify(memos));
                     renderMemos();
-                    statusBar.innerText = `✅ 정렬 성공! [${isTableStructure ? '구조형 테이블' : '직관적 컴팩트 노트'}] 형태로 가독성을 극대화했습니다.`;
+                    statusBar.innerText = `✅ 정렬 완료! 단차 문제를 완전히 박멸하여 문장을 매끄럽게 연결했습니다.`;
                 } else {
-                    statusBar.innerText = "❌ 노이즈 제거 후 남은 유효 텍스트가 없습니다.";
+                    statusBar.innerText = "❌ 전처리 필터 가공 후 남은 유효 데이터가 부족합니다.";
                 }
 
             } catch (err) {
                 console.error(err);
-                statusBar.innerText = "❌ 오작동 제어 랩핑: " + err.message;
+                statusBar.innerText = "❌ 복원 오류 발생 제어 코드: " + err.message;
             } finally {
                 resetInput();
             }
@@ -250,23 +261,23 @@
 
         function resetInput() {
             imageInput.disabled = false;
-            btnText.innerText = "노트 · 표 이미지 분석 (세로 찢어짐 및 계단식 줄바꿈 완벽 해결)";
+            btnText.innerText = "이미지 분석 (계단식 강제 줄바꿈 및 파편화 현상 완전 복원)";
             imageInput.value = "";
         }
 
         clearAllBtn.addEventListener('click', () => {
             if(memos.length === 0) return;
-            if(confirm('정말로 저장된 모든 마스터 노트를 비우시겠습니까?')) {
+            if(confirm('보관중인 모든 메모 큐를 비우시겠습니까?')) {
                 memos = [];
-                localStorage.removeItem('ai_master_v7_memos');
+                localStorage.removeItem('ai_master_v8_memos');
                 renderMemos();
-                statusBar.innerText = "🗑️ 모든 메모 캐시가 초기화되었습니다.";
+                statusBar.innerText = "🗑️ 로컬 저장 공간이 깨끗하게 초기화되었습니다.";
             }
         });
 
         window.deleteMemo = function(id) {
             memos = memos.filter(m => m.id !== id);
-            localStorage.setItem('ai_master_v7_memos', JSON.stringify(memos));
+            localStorage.setItem('ai_master_v8_memos', JSON.stringify(memos));
             renderMemos();
         }
 
@@ -282,22 +293,22 @@
 
             memos.forEach(m => {
                 const memoDiv = document.createElement('div');
-                memoDiv.className = "memo-item bg-slate-900/40 border border-slate-800 p-4 rounded-xl relative mb-4 shadow-lg animate-fadeIn";
+                memoDiv.className = "memo-item bg-slate-900/50 border border-slate-800/80 p-5 rounded-xl relative mb-4 shadow-xl";
                 memoDiv.innerHTML = `
-                    <div class="flex justify-between items-center mb-3 border-b border-slate-800 pb-2">
+                    <div class="flex justify-between items-center mb-3 border-b border-slate-800/60 pb-2.5">
                         <div class="flex items-center gap-2">
                             <span class="inline-block w-2 h-2 rounded-full ${m.isTable ? 'bg-cyan-400' : 'bg-emerald-400'}"></span>
                             <span class="text-xs font-bold tracking-wider uppercase font-mono ${m.isTable ? 'text-cyan-400' : 'text-emerald-400'}">
-                                ${m.isTable ? '📊 GRID TABLE STRUCT' : '📝 COMPACT FLOW NOTE'}
+                                ${m.isTable ? '📊 STRUCTURED DATA MATRIX' : '📝 PERFECT FLOW NOTE'}
                             </span>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-[10px] text-slate-500 font-mono">${m.time}</span>
+                        <div class="flex items-center gap-3">
+                            <span class="text-[10px] text-slate-500 font-mono font-medium">${m.time}</span>
                             <button onclick="deleteMemo(${m.id})" class="text-xs text-slate-500 hover:text-rose-400 transition-colors px-1 font-bold">✕</button>
                         </div>
                     </div>
-                    <div class="bg-slate-950/80 p-4 rounded-lg border border-slate-800/50 shadow-inner">
-                        <p class="ai-final-box text-xs md:text-sm text-slate-200 select-text cursor-text font-sans">${m.content}</p>
+                    <div class="bg-slate-950/70 p-4 rounded-lg border border-slate-900/80 shadow-inner">
+                        <p class="ai-final-box text-xs md:text-sm text-slate-200 select-text cursor-text font-sans tracking-wide font-normal">${m.content}</p>
                     </div>
                 `;
                 memoList.appendChild(memoDiv);
@@ -306,3 +317,4 @@
     </script>
 </body>
 </html>
+
