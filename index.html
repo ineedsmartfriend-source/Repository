@@ -29,22 +29,24 @@ header{
 
 .card{
   background:#171a21;
-  padding:10px;
+  padding:14px;
   border-radius:10px;
 }
 
 textarea,input{
   width:100%;
-  padding:10px;
+  padding:12px;
   border-radius:8px;
   border:1px solid #333;
   background:#0f1115;
   color:#fff;
   box-sizing: border-box;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 #ocr {
-  font-family: monospace;
+  font-family: inherit;
   white-space: pre-wrap;
   word-break: break-all;
 }
@@ -53,10 +55,10 @@ button{
   background:#4f8cff;
   color:white;
   border:none;
-  padding:10px;
+  padding:10px 16px;
   border-radius:8px;
   cursor:pointer;
-  margin-top:6px;
+  margin-top:8px;
   font-weight: bold;
 }
 
@@ -77,32 +79,25 @@ img{
   height: 12px;
   background: #4f8cff;
   border-radius: 6px;
+  transition: width 0.2s ease;
 }
 
-/* 갤럭시 스타일 어시스트 툴바 */
 .assist-toolbar {
   display: none;
   gap: 8px;
   margin-bottom: 8px;
 }
 .btn-assist {
-  background: #3a3f50;
+  background: #2a2e3d;
   color: #7cb5ff;
   border: 1px solid #4f8cff;
-  padding: 8px 14px;
+  padding: 6px 12px;
   font-size: 13px;
   border-radius: 20px;
   margin-top: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.btn-assist:active {
-  background: #4f8cff;
-  color: #fff;
 }
 
-/* 전체보기 모달 스타일 */
+/* 모달 스타일 */
 .modal {
   display: none;
   position: fixed;
@@ -112,30 +107,21 @@ img{
   justify-content: center;
   align-items: center;
 }
-
 .modal-content {
   background: #171a21;
   padding: 20px;
   border-radius: 12px;
   width: 90%;
-  max-width: 900px;
-  max-height: 85%;
+  max-width: 700px;
+  max-height: 80%;
   overflow-y: auto;
 }
-
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid #333;
   padding-bottom: 10px;
-  margin-bottom: 15px;
-}
-
-.modal-body {
-  white-space: pre-wrap;
-  font-family: monospace;
-  line-height: 1.6;
 }
 </style>
 </head>
@@ -143,7 +129,7 @@ img{
 <body>
 
 <header>
-  <div>OCR AI Studio FIXED (갤럭시 텍스트 추출 어시스트판)</div>
+  <div>OCR AI Studio FIXED (자동 간격 조정 & 요약 어시스트판)</div>
 </header>
 
 <div class="container">
@@ -154,41 +140,35 @@ img{
   </div>
 
   <div class="card">
-    <button onclick="app.runOCR()" style="width:100%; padding:12px; font-size:15px;">정밀 융합 OCR 실행</button>
+    <button onclick="app.runOCR()" style="width:100%; padding:12px; font-size:15px;">텍스트 정밀 추출 및 요약 정리</button>
     <div id="progressContainer" class="progress-container">
-      <div style="font-size:12px; margin-bottom:4px;" id="progressText">데이터 분석 결합 중...</div>
+      <div style="font-size:12px; margin-bottom:4px;" id="progressText">분석 중...</div>
       <div class="progress-bar" id="progressBar"></div>
     </div>
   </div>
 
   <div class="card">
-    <h3>OCR 결과</h3>
-    
+    <h3>추출된 결과 (자동 문맥 간격 정렬)</h3>
     <div id="assistToolbar" class="assist-toolbar">
       <button class="btn-assist" onclick="app.copyToClipboard()">📋 전체 복사</button>
       <button class="btn-assist" onclick="app.shareText()">📤 스마트 공유</button>
     </div>
-
-    <textarea id="ocr" rows="15" placeholder="이미지를 업로드하고 실행하면 분석된 텍스트가 조립됩니다."></textarea>
-    <button onclick="app.viewFull('교정된 OCR 결과', 'ocr')">전체보기</button>
+    <textarea id="ocr" rows="12" placeholder="결과가 여기에 표시됩니다."></textarea>
   </div>
 
   <div class="card">
-    <h3>Summary</h3>
-    <textarea id="summary" rows="3"></textarea>
-    <button onclick="app.viewFull('Summary 결과', 'summary')">전체보기</button>
+    <h3>스마트 요약 정리 (Summary)</h3>
+    <textarea id="summary" rows="5" placeholder="추출 후 자동으로 구조화 요약 정보가 생성됩니다."></textarea>
   </div>
 
   <div class="card">
-    <h3>Keywords</h3>
-    <textarea id="keywords" rows="2"></textarea>
-    <button onclick="app.viewFull('Keywords 결과', 'keywords')">전체보기</button>
+    <h3>핵심 키워드 (Keywords)</h3>
+    <textarea id="keywords" rows="2" placeholder="핵심 단어 추출"></textarea>
   </div>
 
   <div class="card">
-    <h3>Title</h3>
-    <input id="title"/>
-    <button onclick="app.viewFull('Title 결과', 'title')">전체보기</button>
+    <h3>추천 제목 (Title)</h3>
+    <input id="title" placeholder="추천 문서 제목"/>
   </div>
 
 </div>
@@ -199,28 +179,25 @@ img{
       <h3 id="modalTitle">타이틀</h3>
       <button style="background:#ff4f4f; margin-top:0;" onclick="app.closeModal()">닫기</button>
     </div>
-    <div id="fullViewModalBody" class="modal-body"></div>
+    <div id="fullViewModalBody" style="white-space: pre-wrap; margin-top:15px;"></div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <script>
-
 /* =========================
-   OCR ENGINE
+   OCR CORE ENGINE
 ========================= */
 class OCR {
   constructor(){
     this.worker = null;
     this.ready = false;
   }
-
   async init(){
-    this.worker = await Tesseract.createWorker("kor+eng+jpn+chi_sim+chi_tra", 1);
+    this.worker = await Tesseract.createWorker("kor+eng", 1);
     this.ready = true;
   }
-
   async run(image){
     if(!this.ready) await this.init();
     const res = await this.worker.recognize(image);
@@ -229,34 +206,29 @@ class OCR {
 }
 
 /* =========================
-   SIMPLE AI (LOCAL) - 컴팩트 밀착 융합 로직
+   AI ASSISTANT (간격 조정 및 스마트 요약)
 ========================= */
-class AI {
+class AIAssistant {
+  
+  // 1. 단어 간격 및 줄바꿈을 왜곡 없이 자연스럽게 재배치하는 핵심 로직
+  static arrangeIntervals(ocrData) {
+    if (!ocrData || !ocrData.words) return "";
 
-  static async processCompactLayout(imgElement, ocrInstance, onProgress) {
-    onProgress(30);
-    const result = await ocrInstance.run(imgElement);
-    onProgress(70);
-
-    if (!result || !result.words) return "";
-
-    let words = result.words.map(w => {
+    // 유효한 단어만 추출 및 특수문자 노이즈 정제
+    let words = ocrData.words.map(w => {
       let txt = w.text.trim();
-      if (/^[\\\/•\.\*\-\+\s¢®©=\|?:\(\)\[\]{}’”"‘'<>«»;_·~^`]{1,4}$/.test(txt)) txt = "";
-      return {
-        text: txt,
-        x0: w.bbox.x0,
-        y0: w.bbox.y0,
-        h: w.bbox.y1 - w.bbox.y0
-      };
-    }).filter(w => w.text.length > 0);
+      // 불필요하게 쪼개진 단독 특수기호 거르기
+      if (/^[\\\/•\.\*\-\+\s¢®©=\|?:\(\)\[\]{}’”"‘'<>«»;_·~^`]{1,2}$/.test(txt)) return null;
+      return { text: txt, x0: w.bbox.x0, y0: w.bbox.y0, h: w.bbox.y1 - w.bbox.y0 };
+    }).filter(w => w !== null && w.text.length > 0);
 
     if (words.length === 0) return "";
 
+    // Y축 기준 행 그룹화 (오차 범위를 글자 높이의 60%로 유연하게 계산)
     let avgHeight = words.reduce((sum, w) => sum + w.h, 0) / words.length;
-    let rowThreshold = avgHeight * 0.5;
-
+    let rowThreshold = avgHeight * 0.6;
     let rows = [];
+
     words.sort((a, b) => a.y0 - b.y0);
 
     while (words.length > 0) {
@@ -273,72 +245,91 @@ class AI {
       currentRow.sort((a, b) => a.x0 - b.x0);
       rows.push(currentRow);
     }
-
     rows.sort((a, b) => a[0].y0 - b[0].y0);
 
-    let gridLines = rows.map(row => {
-      let lineStr = "";
-      
-      for(let i=0; i<row.length; i++) {
-        let w = row[i];
-        let cleanedWord = w.text;
-
-        cleanedWord = cleanedWord.replace(/omy/g, "com")
-                                 .replace(/할일을/g, "할 일을")
-                                 .replace(/정학히/g, "정확히")
-                                 .replace(/지시하기/g, "지시하기")
-                                 .replace(/달사시/g, "달성 시");
+    // 공백 찢어짐 방지: 물리적 거리에 비례하여 자연스러운 '한 칸 띄어쓰기' 또는 '탭 구분' 적용
+    return rows.map(row => {
+      let line = "";
+      for (let i = 0; i < row.length; i++) {
+        let current = row[i];
+        let txt = current.text
+          .replace(/omy/g, "com").replace(/할일을/g, "할 일을")
+          .replace(/정학히/g, "정확히").replace(/달사시/g, "달성 시");
 
         if (i === 0) {
-          lineStr += cleanedWord;
+          line += txt;
         } else {
-          let prevW = row[i-1];
-          let distance = w.x0 - (prevW.x0 + (prevW.text.length * (avgHeight * 0.5)));
-          
-          if (distance > avgHeight * 1.2) {
-            lineStr += "   |   " + cleanedWord; 
+          let prev = row[i - 1];
+          let dist = current.x0 - (prev.x0 + (prev.text.length * (avgHeight * 0.5)));
+          // 단어 간격이 멀리 떨어져 있으면 탭 기호(|)로 분리하고 가까우면 일반 공백 처리
+          if (dist > avgHeight * 1.5) {
+            line += "  |  " + txt;
           } else {
-            lineStr += " " + cleanedWord;
+            line += " " + txt;
           }
         }
       }
-      return lineStr;
+      return line;
+    }).filter(l => l.trim().length > 0).join("\n");
+  }
+
+  // 2. 텍스트 정보의 맥락을 분석하여 개조식 스마트 요약본 생성
+  static generateSummary(text) {
+    if (!text) return "분석할 내용이 없습니다.";
+    const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+    
+    let summaryResult = "📌 [주요 내용 요약]\n";
+    let count = 1;
+
+    // 핵심 의미가 담긴 줄을 선별하여 최대 3~4문장으로 구조화
+    for (let line of lines) {
+      // 기호나 인덱스 파편을 제외하고 실질적 단어가 많은 핵심 문장 선별
+      if (line.length > 8 && !line.startsWith("|") && count <= 4) {
+        let cleanLine = line.replace(/^[0-9\s\|\-\•\(\)\@]+/g, "").trim();
+        if(cleanLine.length > 5) {
+          summaryResult += `  ${count}. ${cleanLine}\n`;
+          count++;
+        }
+      }
+    }
+    if(count === 1) summaryResult += "  • 가로 구조 데이터가 성공적으로 추출 및 정렬되었습니다.";
+    return summaryResult;
+  }
+
+  // 3. 텍스트 내 가치 있는 키워드 추출
+  static extractKeywords(text) {
+    const tokens = text.match(/[a-zA-Z가-힣]{2,}/g) || [];
+    const frequencies = {};
+    const skipList = ["또는", "대해", "현재", "진행", "방식", "결과", "위해"];
+
+    tokens.forEach(t => {
+      if(!skipList.includes(t)) {
+        frequencies[t] = (frequencies[t] || 0) + 1;
+      }
     });
 
-    onProgress(100);
-    return this.cleanupOutput(gridLines.join("\n"));
+    return Object.entries(frequencies)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(entry => `#${entry[0]}`)
+      .join("  ");
   }
 
-  static cleanupOutput(text) {
-    return text
-      .split("\n")
-      .map(line => line.replace(/^[\[\]_\|\s]+$/g, "").trim())
-      .filter(line => line.length > 0)
-      .join("\n");
-  }
-
-  static summary(text){
-    if(!text) return "요약 정보가 없습니다.";
-    return text.split("\n").slice(0, 4).join("\n");
-  }
-
-  static keywords(text){
-    const words = text.toLowerCase().match(/[a-z가-힣一-龥]{2,}/g) || [];
-    const map = {};
-    words.forEach(w => { map[w] = (map[w]||0)+1; });
-    return Object.entries(map)
-      .sort((a,b)=>b[1]-a[1])
-      .slice(0,6).map(x=>x[0]).join(", ");
-  }
-
-  static title(text){
-    const firstLine = text.split("\n")[0];
-    return firstLine ? firstLine.slice(0, 30) : "스캔 데이터 문서";
+  // 4. 추출된 문장을 대표하는 제목 생성
+  static suggestTitle(text) {
+    const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+    for (let line of lines) {
+      let candidate = line.replace(/[^a-zA-Z가-힣0-9\s]/g, "").trim();
+      if (candidate.length > 3 && candidate.length < 25) {
+        return candidate + " 분석 보고서";
+      }
+    }
+    return "스마트 추출 문서";
   }
 }
 
 /* =========================
-   APPFLOW
+   APPLICATION CORE FLOW
 ========================= */
 class App {
   constructor(){
@@ -363,16 +354,14 @@ class App {
 
   async init(){
     await this.ocr.init();
-
     this.file.addEventListener("change", (e)=>{
       const file = e.target.files[0];
       if(!file) return;
-
       const reader = new FileReader();
       reader.onload = (ev)=>{
         this.preview.src = ev.target.result;
         this.currentImage = ev.target.result;
-        this.assistToolbar.style.display = "none"; // 새 파일 로드 시 툴바 초기화
+        this.assistToolbar.style.display = "none";
       };
       reader.readAsDataURL(file);
     });
@@ -380,92 +369,67 @@ class App {
 
   async runOCR(){
     if(!this.currentImage){
-      alert("이미지를 먼저 선택하세요");
+      alert("이미지를 먼저 업로드해 주세요.");
       return;
     }
-
     const img = new Image();
     img.src = this.currentImage;
-
     img.onload = async ()=>{
       try {
         this.progressContainer.style.display = "block";
-        this.progressBar.style.width = "0%";
-        this.assistToolbar.style.display = "none";
+        this.progressBar.style.width = "40%";
+        this.progressText.innerText = "텍스트 윤곽 인식 중... (40%)";
 
-        const processedText = await AI.processCompactLayout(img, this.ocr, (percent) => {
-          this.progressBar.style.width = percent + "%";
-          this.progressText.innerText = `데이터 분석 결합 중... (${percent}%)`;
-        });
-
-        this.ocrEl.value = processedText;
-        this.summaryEl.value = AI.summary(processedText);
-        this.keywordEl.value = AI.keywords(processedText);
-        this.titleEl.value = AI.title(processedText);
+        const rawData = await this.ocr.run(img);
         
-        // 스캔 성공 시 갤럭시 스타일 어시스트 툴바 즉시 표출
-        if (processedText.trim().length > 0) {
-          this.assistToolbar.style.display = "flex";
-        }
+        this.progressBar.style.width = "80%";
+        this.progressText.innerText = "간격 보정 및 요약 생성 중... (80%)";
 
-        setTimeout(() => { this.progressContainer.style.display = "none"; }, 500);
+        // 정렬 및 보정 가동
+        const arrangedText = AIAssistant.arrangeIntervals(rawData);
 
-      } catch(err){
+        // 출력값 적용
+        this.ocrEl.value = arrangedText;
+        this.summaryEl.value = AIAssistant.generateSummary(arrangedText);
+        this.keywordEl.value = AIAssistant.extractKeywords(arrangedText);
+        this.titleEl.value = AIAssistant.suggestTitle(arrangedText);
+
+        this.progressBar.style.width = "100%";
+        this.progressText.innerText = "분석 완료! (100%)";
+        this.assistToolbar.style.display = "flex";
+
+        setTimeout(() => { this.progressContainer.style.display = "none"; }, 600);
+      } catch(err) {
         console.error(err);
-        alert("OCR 실행 중 에러가 발생했습니다.");
+        alert("분석 중 에러가 발생했습니다.");
         this.progressContainer.style.display = "none";
       }
     };
   }
 
-  /* 갤럭시 어시스트 기능 1: 클립보드 복사 */
   async copyToClipboard() {
-    const text = this.ocrEl.value;
-    if (!text.trim()) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      alert("추출된 전체 텍스트가 클립보드에 복사되었습니다!");
-    } catch (err) {
-      // 구형 웹뷰 호환성 대응 백업 구조
-      this.ocrEl.select();
-      document.execCommand('copy');
-      alert("텍스트가 복사되었습니다.");
-    }
+    if (!this.ocrEl.value.trim()) return;
+    await navigator.clipboard.writeText(this.ocrEl.value);
+    alert("텍스트가 클립보드에 복사되었습니다!");
   }
 
-  /* 갤럭시 어시스트 기능 2: 모바일 공유 시스템 연동 */
   async shareText() {
-    const text = this.ocrEl.value;
-    if (!text.trim()) return;
-    
+    if (!this.ocrEl.value.trim()) return;
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: this.titleEl.value || '추출된 문서',
-          text: text
-        });
-      } catch (err) {
-        console.log('공유 취소 또는 에러:', err);
-      }
+        await navigator.share({ title: this.titleEl.value, text: this.ocrEl.value });
+      } catch (err) { console.log(err); }
     } else {
-      alert("현재 브라우저/환경에서는 웹 공유 API를 지원하지 않습니다. [전체 복사] 기능을 이용해 주세요.");
+      alert("이 환경에서는 스마트 공유를 지원하지 않습니다. 전체 복사를 이용해 주세요.");
     }
   }
 
   viewFull(title, elementId) {
-    const targetElement = document.getElementById(elementId);
-    if (!targetElement || !targetElement.value.trim()) {
-      alert("표시할 내용이 없습니다.");
-      return;
-    }
     document.getElementById("modalTitle").innerText = title;
-    this.modalBody.innerText = targetElement.value;
+    this.modalBody.innerText = document.getElementById(elementId).value;
     this.modal.style.display = "flex";
   }
-
-  closeModal() {
-    this.modal.style.display = "none";
-  }
+  closeModal() { this.modal.style.display = "none"; }
 }
 
 const app = new App();
@@ -473,3 +437,4 @@ const app = new App();
 
 </body>
 </html>
+
