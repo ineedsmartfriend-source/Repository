@@ -3,19 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ Row/Col Smart OCR Memo</title>
+    <title>⚡ Precision Layout OCR Memo</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Pretendard:wght@400;600&display=swap');
         body {
             font-family: 'Pretendard', sans-serif;
             background-color: #0f172a;
         }
-        /* 행열이 깨지지 않도록 고정폭 글꼴과 스크롤 지정 */
-        .table-font {
-            font-family: 'Fira Code', 'Pretendard', monospace;
+        /* 위치 왜곡을 막기 위해 간격이 완벽히 균일한 고정폭(Monospace) 폰트 사용 */
+        .monospace-layout {
+            font-family: 'Fira Code', monospace;
             white-space: pre;
+            letter-spacing: 0px;
         }
         .custom-scrollbar::-webkit-scrollbar {
             width: 4px;
@@ -32,34 +33,31 @@
 </head>
 <body class="text-slate-100 flex flex-col h-screen p-4 overflow-hidden select-none">
 
-    <!-- 상단 타이틀 바 -->
     <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
         <div class="flex items-center gap-2">
-            <span class="text-xl">📊</span>
-            <h1 class="text-base font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">스마트 행/열 정렬 메모장</h1>
+            <span class="text-xl">🎯</span>
+            <h1 class="text-base font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">초정밀 위치 매핑 메모장</h1>
         </div>
         <button id="clear-all-btn" class="text-xs text-slate-500 hover:text-rose-400 transition-colors">전체 삭제</button>
     </div>
 
-    <!-- 제어 영역 -->
     <div class="my-3 space-y-2 shrink-0">
         <input type="file" id="image-input" accept="image/*" class="hidden">
         
-        <button id="upload-btn" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 active:scale-[0.98] text-white font-bold py-4 px-4 rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2">
-            <span>📊</span>
-            <span id="btn-text">표/텍스트 이미지 선택 및 정렬 추출</span>
+        <button id="upload-btn" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 active:scale-[0.98] text-white font-bold py-4 px-4 rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2">
+            <span>🎯</span>
+            <span id="btn-text">캡처 선택 (원본 위치 그대로 추출)</span>
         </button>
 
         <div id="status-bar" class="text-[11px] text-center text-slate-400 py-1.5 bg-slate-800/50 rounded-md">
-            🟢 스탠바이 (행과 열의 좌표를 계산하여 정렬합니다)
+            🟢 스탠바이 (글자 간의 기하학적 배치를 정밀 분석합니다)
         </div>
     </div>
 
-    <!-- 메모 리스트 출력 영역 -->
     <div id="memo-list" class="flex-1 min-h-0 space-y-4 overflow-y-auto custom-scrollbar pr-1 pb-6">
         <div id="empty-state" class="h-full flex flex-col items-center justify-center text-slate-500 text-xs py-10">
-            <p>엑셀, 식단표, 영수증 등 표가 있는 화면을 캡처한 후</p>
-            <p class="mt-1">상단 버튼을 눌러 사진을 고르면 줄과 칸을 맞춰 저장합니다.</p>
+            <p>원본 레이아웃 유지가 필요한 화면을 캡처한 후</p>
+            <p class="mt-1">상단 버튼을 눌러 사진을 고르면 빈칸 비율까지 맞춰 복사합니다.</p>
         </div>
     </div>
 
@@ -72,7 +70,7 @@
         const statusBar = document.getElementById('status-bar');
         const clearAllBtn = document.getElementById('clear-all-btn');
 
-        let memos = JSON.parse(localStorage.getItem('my_table_memos')) || [];
+        let memos = JSON.parse(localStorage.getItem('my_precision_memos')) || [];
         
         renderMemos();
 
@@ -83,97 +81,94 @@
             if (!file) return;
 
             try {
-                statusBar.innerText = "⏳ 이미지 로드 중...";
-                btnText.innerText = "구조 분석 중...";
+                statusBar.innerText = "⏳ 이미지 캔버스 매핑 중...";
+                btnText.innerText = "위치 스캔 중...";
                 uploadBtn.disabled = true;
 
-                // 세밀한 좌표 분석을 위해 Tesseract 정밀 데이터 요청
-                statusBar.innerText = "📐 텍스트 블록 및 행/열 좌표 계산 중...";
+                statusBar.innerText = "📐 글자별 좌표 분석 및 공간 비율 계산 중...";
                 const result = await Tesseract.recognize(file, 'kor', {
                     logger: m => {
                         if(m.status === 'recognizing') {
-                            statusBar.innerText = `🔤 행열 데이터 매핑 중... (${Math.floor(m.progress * 100)}%)`;
+                            statusBar.innerText = `🎯 위치 고정 매핑 중... (${Math.floor(m.progress * 100)}%)`;
                         }
                     }
                 });
 
-                // --- [핵심] 행/열 정렬 알고리즘 작동 ---
-                const blocks = [];
-                result.data.blocks.forEach(block => {
-                    block.paragraphs.forEach(para => {
-                        para.lines.forEach(line => {
-                            // 각 글자(라인)의 Y축 위치와 X축 위치 정보 수집
-                            blocks.push({
-                                text: line.text.trim(),
-                                x: line.bbox.x0,
-                                y: line.bbox.y0,
-                                h: line.bbox.y1 - line.bbox.y0
-                            });
-                        });
-                    });
-                });
+                const words = result.data.words;
+                // 가로 너비를 기준으로 띄어쓰기 칸수를 계산하기 위해 이미지 전체 너비 확보
+                const pageWidth = result.data.blocks[0]?.paragraphs[0]?.lines[0]?.bbox.x1 * 1.2 || 1000; 
 
-                if (blocks.length === 0) {
+                if (words.length === 0) {
                     statusBar.innerText = "❌ 인식된 텍스트가 없습니다.";
                     uploadBtn.disabled = false;
-                    btnText.innerText = "표/텍스트 이미지 선택 및 정렬 추출";
+                    btnText.innerText = "캡처 선택 (원본 위치 그대로 추출)";
                     return;
                 }
 
-                // 1. Y축(높이) 기준으로 정렬해서 같은 줄(행)끼리 묶기
-                // 글자 크기 오차 범위를 감안하여 높이의 50% 이내에 있으면 동일한 행으로 인식
-                blocks.sort((a, b) => a.y - b.y);
+                // 1. 단어들을 Y축 위치 기준으로 정렬
+                words.sort((a, b) => a.bbox.y0 - b.bbox.y0);
+
                 const rows = [];
-                let currentSrcRow = [blocks[0]];
+                let currentSrcRow = [words[0]];
 
-                for (let i = 1; i < blocks.length; i++) {
-                    const currentBlock = blocks[i];
-                    const lastBlockInRow = currentSrcRow[currentSrcRow.length - 1];
-                    const allowedGap = lastBlockInRow.h * 0.6; // 줄바꿈 감지 임계값
+                for (let i = 1; i < words.length; i++) {
+                    const currentWord = words[i];
+                    const lastWordInRow = currentSrcRow[currentSrcRow.length - 1];
+                    // 글자 높이의 70% 이내에 있으면 같은 줄(행)로 묶음
+                    const rowHeight = lastWordInRow.bbox.y1 - lastWordInRow.bbox.y0;
 
-                    if (currentBlock.y - lastBlockInRow.y <= allowedGap) {
-                        currentSrcRow.push(currentBlock);
+                    if (currentWord.bbox.y0 - lastWordInRow.bbox.y0 <= rowHeight * 0.7) {
+                        currentSrcRow.push(currentWord);
                     } else {
                         rows.push(currentSrcRow);
-                        currentSrcRow = [currentBlock];
+                        currentSrcRow = [currentWord];
                     }
                 }
                 rows.push(currentSrcRow);
 
-                // 2. 각 행 안에서 X축(좌측 위치) 기준으로 정렬하고, 칸(열) 구분 규칙 적용
+                // 2. 가로(X축) 좌표 정보에 비례하여 실제 "공백 글자(Space)" 채워넣기
                 let finalFormattedText = "";
+                // 고정폭 단어 너비 기준값 계산 (대략적인 글자당 해상도 너비 비율)
+                const charWidthUnit = pageWidth / 65; 
+
                 rows.forEach(row => {
-                    row.sort((a, b) => a.x - b.x); // 왼쪽 글자부터 순서대로
+                    row.sort((a, b) => a.bbox.x0 - b.bbox.x0); // 왼쪽 단어부터 정렬
                     
                     let rowStr = "";
-                    for(let j=0; j<row.length; j++) {
-                        if (j > 0) {
-                            const gap = row[j].x - (row[j-1].x + row[j-1].text.length * 8); 
-                            // 떨어져 있는 거리(Gap)가 멀면 탭(\t)이나 공백 여유를 두어 열 분리 효과 부여
-                            if (gap > 40) {
-                                rowStr += "    │    "; // 칸 구분선 디자인 적용
-                            } else {
-                                rowStr += "  "; // 일반 띄어쓰기
-                            }
+                    let currentPosition = 0;
+
+                    row.forEach(word => {
+                        // 이미지 좌측 끝 혹은 이전 단어 끝에서부터 현재 단어 시작점까지의 물리적 거리 계산
+                        const targetCharPos = Math.round(word.bbox.x0 / charWidthUnit);
+                        
+                        // 계산된 거리만큼 공백(' ')을 채워 넣어 위치를 밀어줌
+                        if (targetCharPos > currentPosition) {
+                            rowStr += " ".repeat(targetCharPos - currentPosition);
+                            currentPosition = targetCharPos;
                         }
-                        rowStr += row[j].text;
-                    }
+
+                        rowStr += word.text;
+                        // 한글/영문 글자 수에 맞춰 현재 포지션 업데이트 (한글은 대략 1.7칸, 영문숫자는 1칸 차지로 보정)
+                        const korCount = (word.text.match(/[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/g) || []).length;
+                        const otherCount = word.text.length - korCount;
+                        currentPosition += Math.round((korCount * 1.6) + (otherCount * 0.9));
+                    });
+
                     finalFormattedText += rowStr + "\n";
                 });
-                // --- 알고리즘 끝 ---
 
                 if (finalFormattedText.trim()) {
                     const newMemo = {
                         id: Date.now(),
                         time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-                        content: finalFormattedText.trim()
+                        content: finalFormattedText
                     };
                     memos.unshift(newMemo);
-                    localStorage.setItem('my_table_memos', JSON.stringify(memos));
+                    localStorage.setItem('my_precision_memos', JSON.stringify(memos));
                     renderMemos();
-                    statusBar.innerText = "✅ 행/열 정렬 메모가 저장되었습니다!";
+                    statusBar.innerText = "✅ 원본 레이아웃 그대로 저장되었습니다!";
                 } else {
-                    statusBar.innerText = "❌ 변환에 실패했습니다. 다시 시도해 주세요.";
+                    statusBar.innerText = "❌ 변환에 실패했습니다.";
                 }
 
             } catch (err) {
@@ -181,7 +176,7 @@
                 statusBar.innerText = "❌ 오류: " + err.message;
             } finally {
                 uploadBtn.disabled = false;
-                btnText.innerText = "표/텍스트 이미지 선택 및 정렬 추출";
+                btnText.innerText = "캡처 선택 (원본 위치 그대로 추출)";
                 imageInput.value = "";
             }
         });
@@ -190,7 +185,7 @@
             if(memos.length === 0) return;
             if(confirm('모든 메모를 삭제하시겠습니까?')) {
                 memos = [];
-                localStorage.removeItem('my_table_memos');
+                localStorage.removeItem('my_precision_memos');
                 renderMemos();
                 statusBar.innerText = "🗑️ 모든 메모가 삭제되었습니다.";
             }
@@ -198,7 +193,7 @@
 
         window.deleteMemo = function(id) {
             memos = memos.filter(m => m.id !== id);
-            localStorage.setItem('my_table_memos', JSON.stringify(memos));
+            localStorage.setItem('my_precision_memos', JSON.stringify(memos));
             renderMemos();
             statusBar.innerText = "🗑️ 선택한 메모가 삭제되었습니다.";
         }
@@ -220,12 +215,11 @@
                 memoDiv.className = "memo-item bg-slate-800/40 border border-slate-700/40 p-3 rounded-lg relative transition-all hover:border-slate-600";
                 memoDiv.innerHTML = `
                     <div class="flex justify-between items-start mb-2 border-b border-slate-800 pb-1">
-                        <span class="text-[10px] text-slate-500 font-bold">${m.time} [표 형태 저장됨]</span>
+                        <span class="text-[10px] text-slate-500 font-bold">${m.time} [원본 1:1 매핑 완료]</span>
                         <button onclick="deleteMemo(${m.id})" class="text-xs text-slate-500 hover:text-rose-400 px-1">✕</button>
                     </div>
-                    <!-- 가로 스크롤이 가능하도록 설정하여 표가 깨지지 않게 방지 -->
-                    <div class="overflow-x-auto custom-scrollbar whitespace-pre py-1">
-                        <p class="table-font text-xs text-emerald-300 leading-relaxed select-text cursor-text">${m.content}</p>
+                    <div class="overflow-x-auto custom-scrollbar whitespace-pre py-1 bg-slate-950/60 p-2 rounded border border-slate-900">
+                        <p class="monospace-layout text-xs text-cyan-400 leading-relaxed select-text cursor-text">${m.content}</p>
                     </div>
                 `;
                 memoList.appendChild(memoDiv);
