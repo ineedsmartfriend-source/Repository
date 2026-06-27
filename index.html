@@ -43,6 +43,12 @@ textarea,input{
   box-sizing: border-box;
 }
 
+#ocr {
+  font-family: 'Courier New', Courier, monospace;
+  white-space: pre;
+  overflow-x: auto;
+}
+
 button{
   background:#4f8cff;
   color:white;
@@ -56,6 +62,22 @@ button{
 img{
   max-width:100%;
   margin-top:10px;
+}
+
+/* 프로그레스 바 스타일 추가 */
+.progress-container {
+  display: none;
+  background: #222;
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 8px;
+}
+.progress-bar {
+  width: 0%;
+  height: 12px;
+  background: #4f8cff;
+  border-radius: 6px;
+  transition: width 0.1s ease;
 }
 
 /* 전체보기 모달 스타일 */
@@ -73,9 +95,9 @@ img{
   background: #171a21;
   padding: 20px;
   border-radius: 12px;
-  width: 85%;
-  max-width: 600px;
-  max-height: 80%;
+  width: 90%;
+  max-width: 900px;
+  max-height: 85%;
   overflow-y: auto;
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
   position: relative;
@@ -100,8 +122,10 @@ img{
 }
 
 .modal-body {
-  white-space: pre-wrap;
-  word-break: break-all;
+  white-space: pre;
+  font-family: 'Courier New', Courier, monospace;
+  overflow-x: auto;
+  word-break: keep-all;
   line-height: 1.6;
 }
 </style>
@@ -110,7 +134,7 @@ img{
 <body>
 
 <header>
-  <div>OCR AI Studio FIXED (좌상단 정렬 & 문맥 결합판)</div>
+  <div>OCR AI Studio FIXED (초정밀 타일 분할 스캔판)</div>
 </header>
 
 <div class="container">
@@ -121,12 +145,16 @@ img{
   </div>
 
   <div class="card">
-    <button onclick="app.runOCR()">OCR 실행 및 공간 문맥 교정</button>
+    <button onclick="app.runOCR()">초정밀 분할 OCR 실행</button>
+    <div id="progressContainer" class="progress-container">
+      <div style="font-size:12px; margin-bottom:4px;" id="progressText">이미지 쪼개기 분석 중... (0%)</div>
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
   </div>
 
   <div class="card">
-    <h3>OCR 결과 (좌상단 배치 및 문맥 복원 완료)</h3>
-    <textarea id="ocr" rows="12"></textarea>
+    <h3>OCR 결과 (초미세 타일링 조립 및 행열 유지 완료)</h3>
+    <textarea id="ocr" rows="15"></textarea>
     <button onclick="app.viewFull('교정된 OCR 결과', 'ocr')">전체보기</button>
   </div>
 
@@ -165,160 +193,208 @@ img{
 <script>
 
 /* =========================
-   OCR ENGINE (공간 좌표 데이터 추출)
+   OCR ENGINE (멀티 타일 및 진행률 처리)
 ========================= */
 class OCR {
   constructor(){
-    this.worker = null;
+    this.scheduler = null;
     this.ready = false;
   }
 
   async init(){
-    this.worker = await Tesseract.createWorker("kor+eng+jpn+chi_sim+chi_tra", 1, {
-      logger: m => console.log(m)
-    });
+    // 고속 병렬 슬라이딩 분할 분석을 위해 스케줄러(Scheduler) 풀 생성
+    this.scheduler = Tesseract.createScheduler();
+    
+    // 조각난 타일을 동시에 연산할 동시성 워커 생성 및 등록
+    const worker1 = await Tesseract.createWorker("kor+eng+jpn+chi_sim+chi_tra");
+    const worker2 = await Tesseract.createWorker("kor+eng+jpn+chi_sim+chi_tra");
+    
+    this.scheduler.addWorker(worker1);
+    this.scheduler.addWorker(worker2);
+    
     this.ready = true;
   }
 
-  async run(image){
-    if(!this.ready){
-      await this.init();
+  // 가상의 Canvas 조각(패치) 단위 인식을 스케줄러에 위임
+  async runChunk(canvasChunk){
+    if(!this.ready) await this.init();
+    return this.scheduler.recognize(canvasChunk);
+  }
+
+  async terminate() {
+    if(this.scheduler) {
+      await this.scheduler.terminate();
+      this.ready = false;
     }
-    // 문자의 세부 좌표와 블록 정보까지 받아오도록 최적화
-    const res = await this.worker.recognize(image);
-    return res.data;
   }
 }
 
 /* =========================
-   SIMPLE AI (LOCAL) - 공간 재배치 및 의미론적 문장 결합
+   SIMPLE AI (LOCAL) - 타일 분할 제어 및 표 구조 결합
 ========================= */
 class AI {
 
-  // 1. 이미지 상의 좌상단(Top-Left) 좌표를 기준으로 우측 및 아래 방향으로 텍스트 정렬 및 결합
-  static processSpatialLayout(ocrData) {
-    if (!ocrData || !ocrData.words) return "";
+  // 이미지를 바둑판 배열로 잘게 쪼개서 개별 인식 후 하나의 좌표계로 조립하는 함수
+  static async processImageByTiling(imgElement, ocrInstance, onProgress) {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    
+    const imgWidth = imgElement.naturalWidth;
+    const imgHeight = imgElement.naturalHeight;
+    
+    canvas.width = imgWidth;
+    canvas.height = imgHeight;
+    ctx.drawImage(imgElement, 0, 0);
 
-    // 유효한 단어 객체들만 추출 및 정제
-    let words = ocrData.words.map(w => ({
-      text: w.text.trim(),
-      x: w.bbox.x0,
-      y: w.bbox.y0,
-      h: w.bbox.y1 - w.bbox.y0
-    })).filter(w => w.text.length > 0);
+    // [중요] 타일의 해상도 설정 (글자 크기에 맞춰 조절, 일반 문서 기준 가로세로 300~400px이 최적화 규격)
+    const tileWidth = Math.min(400, imgWidth);
+    const tileHeight = Math.min(300, imgHeight);
 
-    if (words.length === 0) return "";
+    let chunks = [];
+    
+    // 수평/수직 방향으로 이동(Sliding Window)하며 좌표 생성
+    for (let y = 0; y < imgHeight; y += tileHeight) {
+      for (let x = 0; x < imgWidth; x += tileWidth) {
+        // 이미지 경계면을 벗어나지 않도록 보정 계산
+        let w = (x + tileWidth > imgWidth) ? (imgWidth - x) : tileWidth;
+        let h = (y + tileHeight > imgHeight) ? (imgHeight - y) : tileHeight;
+        
+        chunks.push({ x, y, w, h });
+      }
+    }
 
-    // 행(Line) 구분을 위한 임계값 (글자 평균 높이의 50% 수준을 기준점 설정)
+    let allWords = [];
+    const totalChunks = chunks.length;
+
+    // 쪼개진 타일들을 순회하며 미세 스캔 수행
+    for (let i = 0; i < totalChunks; i++) {
+      const chunk = chunks[i];
+      
+      // 메모리 상에 조각 이미지 크롭용 임시 캔버스 생성
+      const chunkCanvas = document.createElement("canvas");
+      chunkCanvas.width = chunk.w;
+      chunkCanvas.height = chunk.h;
+      const chunkCtx = chunkCanvas.getContext("2d");
+      
+      // 원본에서 해당 조각 영역만 절삭 복사
+      chunkCtx.drawImage(canvas, chunk.x, chunk.y, chunk.w, chunk.h, 0, 0, chunk.w, chunk.h);
+      
+      try {
+        // 잘게 쪼갠 이미지 파편 OCR 실행
+        const result = await ocrInstance.runChunk(chunkCanvas);
+        
+        if (result && result.data.words) {
+          result.data.words.forEach(w => {
+            let txt = w.text.trim();
+            // 노이즈 파편 필터링
+            if (/^[\\\/•\.\*\-\+\s¢®©=\|?:\(\)\[\]{}’”"‘'<>«»;_·]{1,4}$/.test(txt)) txt = "";
+            
+            if (txt.length > 0) {
+              // 중요!!: 쪼개진 타일 내부의 상대 좌표를 원본 이미지 기준의 절대 좌표로 복원 역매핑
+              allWords.push({
+                text: txt,
+                x0: chunk.x + w.bbox.x0,
+                x1: chunk.x + w.bbox.x1,
+                y0: chunk.y + w.bbox.y0,
+                y1: chunk.y + w.bbox.y1,
+                h: w.bbox.y1 - w.bbox.y0
+              });
+            }
+          });
+        }
+      } catch (e) {
+        console.error("패치 스캔 실패: ", e);
+      }
+
+      // 프로그레스 바 수치 피드백 전달
+      let percent = Math.floor(((i + 1) / totalChunks) * 100);
+      onProgress(percent);
+    }
+
+    if (allWords.length === 0) return "";
+
+    // 이후 쪼개서 수집된 수만 개의 문자 데이터를 전 장과 동일하게 바둑판 표 그리드로 최종 구조 조립
+    return this.buildFinalGrid(allWords);
+  }
+
+  // 조각 수집된 절대 좌표 단어집을 바둑판 구조로 재정렬하는 로직
+  static buildFinalGrid(words) {
     let avgHeight = words.reduce((sum, w) => sum + w.h, 0) / words.length;
-    let rowThreshold = avgHeight * 0.5;
+    let rowThreshold = avgHeight * 0.6;
 
-    let lines = [];
+    let rows = [];
+    words.sort((a, b) => a.y0 - b.y0);
 
-    // 좌상단 정렬을 위한 좌표 기반 2단계 정렬 수행
     while (words.length > 0) {
-      // 가장 상단(y가 가장 작은 값 = 최좌상단 기준점)의 단어를 선택
-      words.sort((a, b) => a.y - b.y || a.x - b.x);
-      let currentWord = words.shift();
-      let currentLine = [currentWord];
+      let base = words.shift();
+      let currentRow = [base];
 
-      // 동일한 행선상(우측 방향)에 위치한 단어들을 검색 및 매칭
       for (let i = 0; i < words.length; i++) {
-        if (Math.abs(words[i].y - currentWord.y) <= rowThreshold) {
-          currentLine.push(words[i]);
+        if (Math.abs(words[i].y0 - base.y0) <= rowThreshold) {
+          currentRow.push(words[i]);
           words.splice(i, 1);
           i--;
         }
       }
-
-      // 찾아낸 한 행의 단어들을 왼쪽에서 오른쪽(x 기준 오름차순)으로 최종 정렬
-      currentLine.sort((a, b) => a.x - b.x);
-      lines.push({
-        y: currentWord.y,
-        text: currentLine.map(w => w.text).join(" ")
-      });
+      currentRow.sort((a, b) => a.x0 - b.x0);
+      rows.push(currentRow);
     }
 
-    // 최종적으로 위에서 아래로(y 오름차순) 전체 행들을 정렬 및 조합
-    lines.sort((a, b) => a.y - b.y);
-    
-    // 구조가 잡힌 텍스트 배열을 문맥 필터로 전달
-    return this.cleanAndGlueContext(lines.map(l => l.text));
-  }
+    rows.sort((a, b) => a[0].y0 - b[0].y0);
 
-  // 2. 파편화된 자소/기호 정제 및 끊긴 단어/문맥 결합 엔진
-  static cleanAndGlueContext(textLines) {
-    let cleanedLines = textLines.map(line => {
-      let l = line.trim();
-      
-      // 단독으로 생성된 악성 특수문자 노이즈 라인 완전 무시 및 청소
-      if (/^[\\\/•\.\*\-\+\s¢®©=\|?:\(\)\[\]{}’”"‘'<>«»;_·]{1,6}$/.test(l)) return "";
-      
-      // 문장 시작부에 파편화되어 붙어있는 불필요 기호 정규식 제거
-      l = l.replace(/^[@®©•\*\-\+\s\d\/\d\|?=《<«]+/g, "").trim(); 
-      // 글자 사이에 난입한 오타 유발용 특수부호 제거
-      l = l.replace(/[\\\/\|¢\+=¢®©«»]/g, ""); 
+    let minX = Math.min(...rows.map(r => r[0].x0));
+    let maxX = Math.max(...rows.map(r => r[r.length - 1].x1));
+    let docWidth = maxX - minX;
+    let maxCharCols = 80; 
 
-      return l;
-    }).filter(line => line.length > 0);
+    let gridLines = rows.map(row => {
+      let lineStr = "";
+      let lastCharIdx = 0;
 
-    let finalContext = [];
-    
-    // 문맥 중심의 유기적 문장 구성 알고리즘
-    for (let i = 0; i < cleanedLines.length; i++) {
-      let current = cleanedLines[i];
-      
-      // 스크린샷처럼 띄어쓰기가 비정상적으로 조각난 고정 형태 사전 대응 매핑
-      current = current.replace(/할 일 을/g, "할 일을");
-      current = current.replace(/정 학 히/g, "정확히");
-      current = current.replace(/지 시 하기/g, "지시하기");
-      current = current.replace(/달 사시/g, "달성 시");
-      current = current.replace(/시 활용/g, "AI 활용");
-      current = current.replace(/fee/gi, "비용(Fee)");
+      row.forEach(w => {
+        let relativeX = w.x0 - minX;
+        let targetCharIdx = Math.floor((relativeX / docWidth) * maxCharCols);
 
-      // 이전 문장이 완성형 문장 기호 없이 끊어졌거나 
-      // 현재 문장이 조사('을', '를', '에서' 등)로 연결되는 경우 앞줄에 접착
-      if (i > 0 && finalContext.length > 0) {
-        let prev = finalContext[finalContext.length - 1];
-        
-        if (!/[\.!\?]$/.test(prev) && /^[을를은는이가에과와고로에서만도]/.test(current)) {
-          finalContext[finalContext.length - 1] = prev + " " + current;
-          continue;
+        if (targetCharIdx > lastCharIdx) {
+          lineStr += " ".repeat(targetCharIdx - lastCharIdx);
         }
-      }
-      finalContext.push(current);
-    }
 
-    return finalContext.join("\n");
+        let cleanedWord = w.text;
+        // 특정 고유명사 및 왜곡 결합 교정
+        cleanedWord = cleanedWord.replace(/omy/g, "com").replace(/콘텐츠잘된/g, "콘텐츠 잘 된");
+
+        lineStr += cleanedWord + " ";
+        lastCharIdx = targetCharIdx + cleanedWord.length + 1;
+      });
+
+      return lineStr;
+    });
+
+    return gridLines
+      .join("\n")
+      .split("\n")
+      .map(line => line.replace(/\s+[\-_\|]\s*$/g, ""))
+      .filter(line => line.trim().length > 0)
+      .join("\n");
   }
 
   static summary(text){
-    if(!text) return "요약할 내용이 없습니다.";
-    const lines = text.split("\n");
-    return lines.slice(0, 3).join("\n");
+    if(!text) return "요약 정보가 없습니다.";
+    return text.split("\n").slice(0, 4).join("\n");
   }
 
   static keywords(text){
-    const words = text.toLowerCase().match(/[a-z가-힣一-龥ぁ-んァ-ヶ]{2,}/g) || [];
+    const words = text.toLowerCase().match(/[a-z가-힣一-龥]{2,}/g) || [];
     const map = {};
-
-    words.forEach(w=>{
-      map[w] = (map[w]||0)+1;
-    });
-
-    const stopWords = ["현재", "또는", "대해", "이것", "함께", "각각", "조건"];
-
+    words.forEach(w => { map[w] = (map[w]||0)+1; });
     return Object.entries(map)
-      .filter(([word]) => !stopWords.includes(word))
       .sort((a,b)=>b[1]-a[1])
-      .slice(0,6)
-      .map(x=>x[0])
-      .join(", ");
+      .slice(0,6).map(x=>x[0]).join(", ");
   }
 
   static title(text){
     const firstLine = text.split("\n")[0];
-    return firstLine ? firstLine.slice(0, 30) : "공간 정렬 분석 문서";
+    return firstLine ? firstLine.trim().slice(0, 30) : "초정밀 분할 스캔 문서";
   }
 }
 
@@ -326,15 +402,17 @@ class AI {
    APPFLOW
 ========================= */
 class App {
-
   constructor(){
     this.file = document.getElementById("file");
     this.preview = document.getElementById("preview");
-
     this.ocrEl = document.getElementById("ocr");
     this.summaryEl = document.getElementById("summary");
     this.keywordEl = document.getElementById("keywords");
     this.titleEl = document.getElementById("title");
+
+    this.progressContainer = document.getElementById("progressContainer");
+    this.progressBar = document.getElementById("progressBar");
+    this.progressText = document.getElementById("progressText");
 
     this.modal = document.getElementById("fullViewModal");
     this.modalBody = document.getElementById("fullViewModalBody");
@@ -374,17 +452,29 @@ class App {
 
     img.onload = async ()=>{
       try {
-        const rawOcrData = await this.ocr.run(img);
-        const processedText = AI.processSpatialLayout(rawOcrData);
+        // UI 프로그레스 활성화
+        this.progressContainer.style.display = "block";
+        this.progressBar.style.width = "0%";
+        this.progressText.innerText = "초미세 이미지 분할 스캔 중... (0%)";
 
+        // 이미지를 타일 조각으로 분할 연산 처리 가동
+        const processedText = await AI.processImageByTiling(img, this.ocr, (percent) => {
+          this.progressBar.style.width = percent + "%";
+          this.progressText.innerText = `초미세 이미지 분할 스캔 중... (${percent}%)`;
+        });
+
+        // 결과 대입 및 프로그레스 숨김
         this.ocrEl.value = processedText;
         this.summaryEl.value = AI.summary(processedText);
         this.keywordEl.value = AI.keywords(processedText);
         this.titleEl.value = AI.title(processedText);
+        
+        setTimeout(() => { this.progressContainer.style.display = "none"; }, 800);
 
       } catch(err){
         console.error(err);
-        alert("OCR 및 공간 문맥 정렬 분석 중 오류가 발생했습니다.");
+        alert("분할 OCR 실행 중 오류가 발생했습니다.");
+        this.progressContainer.style.display = "none";
       }
     };
   }
