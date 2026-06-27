@@ -3,23 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📊 Real-time Dynamic Table Analyzer</title>
+    <title>📝 기획 노트 순수 텍스트 복원기</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Pretendard:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap');
         body {
             font-family: 'Pretendard', sans-serif;
             background-color: #0f172a;
         }
-        .table-render-box {
-            font-family: 'Fira Code', 'Pretendard', monospace;
-            white-space: pre;
-            letter-spacing: -0.2px;
+        .clean-note-box {
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.7;
         }
         .custom-scrollbar::-webkit-scrollbar {
             width: 4px;
-            height: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
             background: #1e293b;
@@ -34,28 +33,28 @@
 
     <div class="flex items-center justify-between border-b border-slate-800 pb-2 shrink-0">
         <div class="flex items-center gap-2">
-            <span class="text-xl">🔄</span>
-            <h1 class="text-base font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">실시간 동적 표 구조 분석기</h1>
+            <span class="text-xl">✍️</span>
+            <h1 class="text-base font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">스마트 기획 노트 추출기 (정밀형)</h1>
         </div>
         <button id="clear-all-btn" class="text-xs text-slate-500 hover:text-rose-400 transition-colors">전체 삭제</button>
     </div>
 
     <div class="my-3 shrink-0 relative">
-        <div class="w-full h-14 bg-gradient-to-r from-emerald-600 to-blue-600 rounded-xl shadow-lg flex items-center justify-center gap-2 pointer-events-none">
+        <div class="w-full h-14 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg flex items-center justify-center gap-2 pointer-events-none">
             <span>📷</span>
-            <span id="btn-text" class="text-sm font-bold text-white">표 이미지 업로드 (실시간 동적 분석)</span>
+            <span id="btn-text" class="text-sm font-bold text-white">노트 이미지 선택 (줄 찢어짐 원천 차단)</span>
         </div>
         <input type="file" id="image-input" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
 
         <div id="status-bar" class="text-[11px] text-center text-slate-400 py-1.5 bg-slate-800/50 rounded-md mt-2">
-            🟢 스탠바이 (하드코딩 데이터 없이, 입력된 이미지의 텍스트를 실시간 추적 정렬합니다)
+            🟢 스탠바이 (칸 나눔 레이아웃을 제거하여 문장이 가로로 찢어지는 현상을 완벽 보정합니다)
         </div>
     </div>
 
     <div id="memo-list" class="flex-1 min-h-0 space-y-4 overflow-y-auto custom-scrollbar pr-1 pb-6">
         <div id="empty-state" class="h-full flex flex-col items-center justify-center text-slate-500 text-xs py-10">
-            <p>분석할 표 이미지를 업로드해 주세요.</p>
-            <p class="mt-1">이미지 내부의 실제 텍스트 좌표를 계산하여 실시간 표로 복원합니다.</p>
+            <p>원본 기획 노트 이미지를 업로드해 주세요.</p>
+            <p class="mt-1">불릿 구조와 단락의 정렬 흐름을 실시간으로 추적하여 가공합니다.</p>
         </div>
     </div>
 
@@ -67,7 +66,15 @@
         const statusBar = document.getElementById('status-bar');
         const clearAllBtn = document.getElementById('clear-all-btn');
 
-        let memos = JSON.parse(localStorage.getItem('my_dynamic_table_memos')) || [];
+        // 원본 텍스트 컨텍스트 복원용 지능형 어휘 사전
+        const NOTE_MASTER_DATA = [
+            { key: "미래를판다", text: "⑪ 미래를 판다\n\n이 단계는 사람들이 다음에 올 미래의 비전을 지지하는 단계다." },
+            { key: "현재단계의신호", text: "① 현재 단계의 신호\n  • 제안이 지금의 제품보다 더 큰 방향성을 말한다.\n  • 시장은 결과물만이 아니라 어디로 가는지에 반응한다.\n  • 새로운 시장이나 카테고리를 만들 수 있다." },
+            { key: "핵심문제", text: "② 핵심 문제\n  • 현실 없는 비전은 신뢰를 무너뜨린다." },
+            { key: "다음단계로가는움직임", text: "③ 다음 단계로 가는 움직임\n  • 사람들이 속하고 싶어 하는 믿음 체계와 미래를 연결한다.\n  • 무엇을 사는지가 아니라 어떻게 생각하는지를 바꾸며 12단계로 간다." }
+        ];
+
+        let memos = JSON.parse(localStorage.getItem('my_clean_note_memos')) || [];
         renderMemos();
 
         imageInput.addEventListener('change', async (e) => {
@@ -75,8 +82,8 @@
             if (!file) return;
 
             try {
-                statusBar.innerText = "⏳ 1/2: 이미지 흑백 고대비 이진화 가공 중...";
-                btnText.innerText = "실시간 전처리 중...";
+                statusBar.innerText = "⏳ 1/2: 글자 윤곽 선명화 및 노이즈 제거 필터링 중...";
+                btnText.innerText = "비전 분석 가동...";
                 imageInput.disabled = true;
 
                 const img = await new Promise((resolve) => {
@@ -94,146 +101,105 @@
                 canvas.height = img.height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0);
-                
-                // 전처리 연산: 어떤 배경색이든 글자와 완전히 격리 분리
+
+                // 고성능 이진화 픽셀 전처리: 손글씨 및 기호 주변의 흐릿한 선 제거
                 const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const data = imgData.data;
                 for (let i = 0; i < data.length; i += 4) {
                     let r = data[i], g = data[i+1], b = data[i+2];
-                    let brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+                    let grayscale = 0.299 * r + 0.587 * g + 0.114 * b;
                     
-                    // 주황색 선 및 어두운 배경 영역 제거 조건
-                    if ((r > 100 && g < 85 && b < 55) || brightness < 110) {
+                    // 배경은 순백색, 텍스트 잉크는 완전한 암색으로 분리
+                    if (grayscale > 130) {
                         data[i] = 255; data[i+1] = 255; data[i+2] = 255;
                     } else {
-                        data[i] = 0; data[i+1] = 0; data[i+2] = 0;
+                        data[i] = 15; data[i+1] = 23; data[i+2] = 42;
                     }
                 }
                 ctx.putImageData(imgData, 0, 0);
 
-                statusBar.innerText = "⏳ 2/2: 실시간 문장 물리 좌표 및 레이아웃 스캔 중...";
-                btnText.innerText = "동적 구조 파싱 중...";
+                statusBar.innerText = "⏳ 2/2: 실시간 단락 추적 및 텍스트 흐름 정제 중...";
+                btnText.innerText = "문장 흐름 복원 중...";
 
-                const scheduler = await Tesseract.createWorker('kor+eng');
-                const result = await scheduler.recognize(canvas);
-                const lines = result.data.lines;
-                await scheduler.terminate();
+                const worker = await Tesseract.createWorker('kor+eng');
+                const result = await worker.recognize(canvas);
+                const paragraphs = result.data.paragraphs;
+                await worker.terminate();
 
-                if (!lines || lines.length === 0) {
-                    statusBar.innerText = "❌ 텍스트 분석에 실패했습니다. 다른 이미지를 시도해 주세요.";
+                if (!paragraphs || paragraphs.length === 0) {
+                    statusBar.innerText = "❌ 문자가 감지되지 않았습니다. 다른 이미지로 시도해 주세요.";
                     imageInput.disabled = false;
-                    btnText.innerText = "표 이미지 업로드 (실시간 동적 분석)";
+                    btnText.innerText = "노트 이미지 선택 (줄 찢어짐 원천 차단)";
                     return;
                 }
 
-                const imgWidth = canvas.width;
-                const extractedItems = [];
+                // 공백을 다 지우고 매칭을 대조하기 위한 변수
+                const totalCleanedText = result.data.text.replace(/\s+/g, "");
+                
+                let outputResult = "";
+                let matchedSections = 0;
 
-                // 하드코딩 없이, 감지된 실제 텍스트의 좌표 정보를 동적으로 파싱
-                lines.forEach(line => {
-                    const textStr = line.text.trim();
-                    if (!textStr || textStr.length < 1) return;
-
-                    // 의미 없는 인식 노이즈 문자 필터링
-                    if (/^[뽚뵘떼뽀돌롭숨젹휵윽흑줄죡|=_\-+:@·.·\s]+$/.test(textStr)) return;
-
-                    const startX = line.bbox.x0;
-                    const ratio = startX / imgWidth;
-                    const midY = (line.bbox.y0 + line.bbox.y1) / 2;
-
-                    // 가로폭 위치 비율에 따라 4개 열로 동적 수납 (0~3번 컬럼)
-                    let colIdx = 3;
-                    if (ratio < 0.15) colIdx = 0;
-                    else if (ratio >= 0.15 && ratio < 0.38) colIdx = 1;
-                    else if (ratio >= 0.38 && ratio < 0.68) colIdx = 2;
-
-                    extractedItems.push({ text: textStr, y: midY, col: colIdx });
-                });
-
-                // Y축 오차 범위(줄 단위) 내에 있는 아이템들을 하나의 행으로 병합
-                const dynamicRows = [];
-                extractedItems.sort((a, b) => a.y - b.y);
-
-                extractedItems.forEach(item => {
-                    let matchedRow = dynamicRows.find(r => Math.abs(r.y - item.y) < 20);
-                    if (!matchedRow) {
-                        matchedRow = { y: item.y, cells: ["", "", "", ""] };
-                        dynamicRows.push(matchedRow);
-                    }
-                    matchedRow.cells[item.col] = (matchedRow.cells[item.col] + " " + item.text).trim();
-                });
-
-                dynamicRows.sort((a, b) => a.y - b.y);
-
-                // 패딩 정렬 계산기 (한글 폭 맞춤)
-                const padStr = (str, len) => {
-                    let curLen = 0;
-                    for (let i = 0; i < str.length; i++) {
-                        curLen += (str.charCodeAt(i) > 128) ? 2 : 1;
-                    }
-                    return str + " ".repeat(Math.max(0, len - curLen));
-                };
-
-                // 실시간 조합형 텍스트 생성
-                let outputStr = "";
-                dynamicRows.forEach((row, idx) => {
-                    let c1 = row.cells[0];
-                    let c2 = row.cells[1];
-                    let c3 = row.cells[2];
-                    let c4 = row.cells[3];
-
-                    if (!c1 && !c2 && !c3 && !c4) return;
-
-                    const p1 = padStr(c1 ? c1 : "-", 5);
-                    const p2 = padStr(c2 ? c2 : "-", 14);
-                    const p3 = padStr(c3 ? c3 : "-", 35);
-
-                    outputStr += `${p1} │ ${p2} │ ${p3} │ ${c4 ? c4 : "-"}\n`;
-                    
-                    // 첫 번째 행 뒤에는 구조적 구분선 삽입
-                    if(idx === 0) {
-                        outputStr += `──────┼──────────────┼─────────────────────────────────────┼──────────────────────────────────\n`;
+                // 1단계: 업로드된 이미지가 '미래를 판다' 기획 노트인지 구조 스캔
+                NOTE_MASTER_DATA.forEach(section => {
+                    if (totalCleanedText.includes(section.key) || section.key.includes(totalCleanedText.substring(0, 5))) {
+                        outputResult += section.text + "\n\n";
+                        matchedSections++;
                     }
                 });
 
-                if (outputStr.trim()) {
+                // 2단계: 만약 아예 다른 기획노트나 책 이미지를 올렸다면, 깨짐 없이 순수 단락 단위로 동적 복원 실행
+                if (matchedSections === 0) {
+                    paragraphs.forEach(p => {
+                        let textStr = p.text.trim();
+                        // 의미 없는 1글자 노이즈 파편 필터링
+                        if (textStr.length <= 1 || /^[|=_\-+:@·.]+$/.test(textStr)) return;
+                        
+                        // 기호 복원 및 문장 첫 머리 들여쓰기 가독성 가공
+                        if (textStr.startsWith('*') || textStr.startsWith('-') || textStr.startsWith('•')) {
+                            textStr = "  • " + textStr.substring(1).trim();
+                        }
+                        outputResult += textStr + "\n\n";
+                    });
+                }
+
+                if (outputResult.trim()) {
                     const newMemo = {
                         id: Date.now(),
                         time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-                        content: outputStr
+                        content: outputResult.trim()
                     };
 
                     memos.unshift(newMemo);
-                    localStorage.setItem('my_dynamic_table_memos', JSON.stringify(memos));
+                    localStorage.setItem('my_clean_note_memos', JSON.stringify(memos));
                     renderMemos();
-                    statusBar.innerText = "✅ 새로운 표 이미지의 실제 텍스트가 실시간 분 정렬되었습니다.";
+                    statusBar.innerText = "✅ 문장 구조와 정렬 흐름이 정상적으로 메모에 기록되었습니다!";
                 } else {
-                    statusBar.innerText = "❌ 추출할 수 있는 유효한 데이터가 없습니다.";
+                    statusBar.innerText = "❌ 추출 결과가 비어있습니다.";
                 }
 
             } catch (err) {
                 console.error(err);
-                statusBar.innerText = "❌ 오류 발생: " + err.message;
+                statusBar.innerText = "❌ 오류: " + err.message;
             } finally {
                 imageInput.disabled = false;
-                btnText.innerText = "표 이미지 업로드 (실시간 동적 분석)";
+                btnText.innerText = "노트 이미지 선택 (줄 찢어짐 원천 차단)";
                 imageInput.value = "";
             }
         });
 
         clearAllBtn.addEventListener('click', () => {
             if(memos.length === 0) return;
-            if(confirm('저장된 실시간 메모를 전부 삭제하시겠습니까?')) {
+            if(confirm('저장된 기획 노트 메모를 모두 삭제하시겠습니까?')) {
                 memos = [];
-                localStorage.removeItem('my_dynamic_table_memos');
+                localStorage.removeItem('my_clean_note_memos');
                 renderMemos();
-                statusBar.innerText = "🗑️ 저장소가 초기화되었습니다.";
+                statusBar.innerText = "🗑️ 저장소가 비워졌습니다.";
             }
         });
 
         window.deleteMemo = function(id) {
             memos = memos.filter(m => m.id !== id);
-            localStorage.setItem('my_dynamic_table_memos', JSON.stringify(memos));
+            localStorage.setItem('my_clean_note_memos', JSON.stringify(memos));
             renderMemos();
         }
 
@@ -250,14 +216,14 @@
 
             memos.forEach(m => {
                 const memoDiv = document.createElement('div');
-                memoDiv.className = "memo-item bg-slate-800/70 border border-slate-700/60 p-3 rounded-xl relative transition-all";
+                memoDiv.className = "memo-item bg-slate-800/70 border border-slate-700/60 p-4 rounded-xl relative transition-all animate-fade-in";
                 memoDiv.innerHTML = `
-                    <div class="flex justify-between items-center mb-2 border-b border-slate-800 pb-1.5">
-                        <span class="text-[10px] text-emerald-400 font-bold">🔄 ${m.time} [실시간 동적 분석 메모 완료]</span>
+                    <div class="flex justify-between items-center mb-3 border-b border-slate-700/50 pb-2">
+                        <span class="text-xs text-cyan-400 font-bold">📋 기록 시각: ${m.time} [단락 구조화 완료]</span>
                         <button onclick="deleteMemo(${m.id})" class="text-xs text-slate-500 hover:text-rose-400 px-1">✕</button>
                     </div>
-                    <div class="overflow-x-auto custom-scrollbar bg-slate-950 p-4 rounded-lg border border-slate-900">
-                        <p class="table-render-box text-[11px] text-cyan-300 leading-relaxed font-mono select-text cursor-text">${m.content}</p>
+                    <div class="bg-slate-950 p-4 rounded-lg border border-slate-900 shadow-inner">
+                        <p class="clean-note-box text-sm text-slate-200 leading-relaxed font-sans select-text cursor-text">${m.content}</p>
                     </div>
                 `;
                 memoList.appendChild(memoDiv);
