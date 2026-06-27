@@ -3,17 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ Real-time Smart OCR Streamer</title>
+    <title>⚡ Smart Text & Row Filter OCR</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Pretendard:wght@400;600;700&display=swap');
         body {
             font-family: 'Pretendard', sans-serif;
             background-color: #0f172a;
         }
+        .clean-row-font {
+            font-family: 'Fira Code', 'Pretendard', monospace;
+            white-space: pre;
+        }
         .custom-scrollbar::-webkit-scrollbar {
             width: 4px;
+            height: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
             background: #1e293b;
@@ -28,210 +33,167 @@
 
     <div class="flex items-center justify-between border-b border-slate-800 pb-2 shrink-0">
         <div class="flex items-center gap-2">
-            <span class="text-xl">👁️‍🗨️</span>
-            <h1 class="text-base font-bold tracking-tight bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">실시간 스마트 스트림 OCR</h1>
+            <span class="text-xl">✨</span>
+            <h1 class="text-base font-bold tracking-tight bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">스마트 텍스트 정제 메모장</h1>
         </div>
         <button id="clear-all-btn" class="text-xs text-slate-500 hover:text-rose-400 transition-colors">전체 삭제</button>
     </div>
 
-    <div id="video-container" class="hidden my-2 bg-black rounded-lg overflow-hidden relative border border-slate-800 shrink-0 h-32">
-        <video id="webcam-video" autoplay playsinline muted class="w-full h-full object-cover"></video>
-        <div class="absolute top-2 left-2 bg-rose-600/80 px-2 py-0.5 rounded text-[10px] font-bold animate-pulse">LIVE SCREEN SCAN</div>
-    </div>
-
-    <div class="my-2 space-y-2 shrink-0">
-        <div class="grid grid-cols-2 gap-2 bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs">
-            <button id="mode-sentence" class="py-2 rounded-md font-bold transition-all text-center bg-violet-600 text-white shadow-sm">
-                📝 문장 단위 (자동 연결)
-            </button>
-            <button id="mode-word" class="py-2 rounded-md font-bold transition-all text-center text-slate-400 hover:text-slate-200">
-                🧩 단어 단위 (개별 분리)
-            </button>
-        </div>
-
+    <div class="my-3 space-y-2 shrink-0">
         <input type="file" id="image-input" accept="image/*" class="hidden">
         
-        <div class="grid grid-cols-2 gap-2">
-            <button id="stream-btn" class="bg-gradient-to-r from-violet-600 to-indigo-600 active:scale-[0.98] text-white font-bold py-3.5 px-2 rounded-xl shadow-lg text-xs flex items-center justify-center gap-1.5">
-                <span id="stream-icon">👁️</span>
-                <span id="stream-text">실시간 스캔 시작</span>
-            </button>
-            <button id="upload-btn" class="bg-slate-800 border border-slate-700 active:scale-[0.98] text-white font-bold py-3.5 px-2 rounded-xl text-xs flex items-center justify-center gap-1.5">
-                <span>📸</span>
-                <span>갤러리 캡처 선택</span>
-            </button>
-        </div>
+        <button id="upload-btn" class="w-full bg-gradient-to-r from-blue-600 to-cyan-600 active:scale-[0.98] text-white font-bold py-4 px-4 rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2">
+            <span>✨</span>
+            <span id="btn-text">캡처 선택 (의미 있는 행 단위 추출)</span>
+        </button>
 
-        <div id="status-bar" class="text-[11px] text-center text-slate-400 py-1 bg-slate-800/50 rounded-md">
-            🟢 스탠바이 (원하는 가공 모드를 선택하세요)
+        <div id="status-bar" class="text-[11px] text-center text-slate-400 py-1.5 bg-slate-800/50 rounded-md">
+            🟢 스탠바이 (노이즈와 불필요한 기호를 자동 필터링합니다)
         </div>
     </div>
 
-    <div id="memo-list" class="flex-1 min-h-0 space-y-3 overflow-y-auto custom-scrollbar pr-1 pb-6">
+    <div id="memo-list" class="flex-1 min-h-0 space-y-4 overflow-y-auto custom-scrollbar pr-1 pb-6">
         <div id="empty-state" class="h-full flex flex-col items-center justify-center text-slate-500 text-xs py-10">
-            <p>실시간 스캔을 켜거나 캡처 사진을 골라보세요.</p>
-            <p class="mt-1">선택한 모드(문장/단어)에 맞춰 보정되어 쌓입니다.</p>
+            <p>화면 캡처 이미지를 선택하면,</p>
+            <p class="mt-1">의미 있는 단어만 골라 줄(행)을 맞춰 깔끔하게 정리합니다.</p>
         </div>
     </div>
 
     <script>
-        const streamBtn = document.getElementById('stream-btn');
-        const streamIcon = document.getElementById('stream-icon');
-        const streamText = document.getElementById('stream-text');
         const uploadBtn = document.getElementById('upload-btn');
         const imageInput = document.getElementById('image-input');
-        const videoContainer = document.getElementById('video-container');
-        const video = document.getElementById('webcam-video');
-        const statusBar = document.getElementById('status-bar');
+        const btnText = document.getElementById('btn-text');
         const memoList = document.getElementById('memo-list');
         const emptyState = document.getElementById('empty-state');
+        const statusBar = document.getElementById('status-bar');
         const clearAllBtn = document.getElementById('clear-all-btn');
 
-        const modeSentence = document.getElementById('mode-sentence');
-        const modeWord = document.getElementById('mode-word');
-
-        let activeMode = 'sentence'; // 'sentence' 또는 'word'
-        let localStream = null;
-        let isScanning = false;
-        let scanInterval = null;
-        let memos = JSON.parse(localStorage.getItem('my_stream_memos')) || [];
-
+        let memos = JSON.parse(localStorage.getItem('my_clean_row_memos')) || [];
+        
         renderMemos();
 
-        // 모드 전환 이벤트
-        modeSentence.addEventListener('click', () => {
-            activeMode = 'sentence';
-            modeSentence.className = "py-2 rounded-md font-bold transition-all text-center bg-violet-600 text-white shadow-sm";
-            modeWord.className = "py-2 rounded-md font-bold transition-all text-center text-slate-400 hover:text-slate-200";
-            statusBar.innerText = "💡 문장 모드: 흩어진 글자들을 문장 형태로 부드럽게 이어 붙입니다.";
-        });
-
-        modeWord.addEventListener('click', () => {
-            activeMode = 'word';
-            modeWord.className = "py-2 rounded-md font-bold transition-all text-center bg-violet-600 text-white shadow-sm";
-            modeSentence.className = "py-2 rounded-md font-bold transition-all text-center text-slate-400 hover:text-slate-200";
-            statusBar.innerText = "💡 단어 모드: 불필요한 조사를 떼어내고 핵심 키워드 단위로 분리합니다.";
-        });
-
-        // 갤러리 캡처 파일 업로드 처리
         uploadBtn.addEventListener('click', () => imageInput.click());
+
         imageInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            processOCR(file);
-        });
-
-        // [핵심] 실시간 비디오 스트리밍 스캔 토글 버튼
-        streamBtn.addEventListener('click', async () => {
-            if (isScanning) {
-                stopStream();
-                return;
-            }
 
             try {
-                statusBar.innerText = "🔄 카메라/화면 스트림 권한 요청 중...";
-                // 스마트폰의 후면 카메라나 미러링 소스를 실시간 연동
-                localStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
-                    audio: false
-                });
+                statusBar.innerText = "⏳ 이미지 스캔 준비 중...";
+                btnText.innerText = "텍스트 필터링 중...";
+                uploadBtn.disabled = true;
 
-                video.srcObject = localStream;
-                videoContainer.classList.remove('hidden');
-                
-                isScanning = true;
-                streamText.innerText = "실시간 스캔 중지";
-                streamIcon.innerText = "⏹️";
-                streamBtn.className = streamBtn.className.replace('from-violet-600 to-indigo-600', 'from-rose-600 to-pink-600');
+                statusBar.innerText = "📐 글자 인지 및 구조 분석 알고리즘 작동 중...";
+                const result = await Tesseract.recognize(file, 'kor');
+                const words = result.data.words;
 
-                // 4초마다 현재 실시간 화면 프레임을 스냅샷 찍어 자동 OCR 처리
-                statusBar.innerText = "⏳ 실시간 스트림 매핑 중... (4초 주기로 자동 분석)";
-                scanInterval = setInterval(() => {
-                    captureFrameAndOCR();
-                }, 4000);
-
-            } catch (err) {
-                console.error(err);
-                statusBar.innerText = "❌ 지원되지 않는 브라우저이거나 카메라 권한이 거부되었습니다.";
-                stopStream();
-            }
-        });
-
-        function stopStream() {
-            isScanning = false;
-            if (scanInterval) clearInterval(scanInterval);
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-            }
-            videoContainer.classList.add('hidden');
-            streamText.innerText = "실시간 스캔 시작";
-            streamIcon.innerText = "👁️";
-            streamBtn.className = streamBtn.className.replace('from-rose-600 to-pink-600', 'from-violet-600 to-indigo-600');
-            statusBar.innerText = "🟢 실시간 스캔이 중지되었습니다.";
-        }
-
-        async function captureFrameAndOCR() {
-            if (!isScanning) return;
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            canvas.toBlob((blob) => {
-                if (blob) processOCR(blob, true);
-            }, 'image/jpeg');
-        }
-
-        // --- [핵심 알고리즘] 단어 및 문장 구분 분석 엔진 ---
-        async function processOCR(sourceBlob, isLive = false) {
-            try {
-                if(!isLive) statusBar.innerText = "⏳ 이미지 구조 분석 중...";
-                const result = await Tesseract.recognize(sourceBlob, 'kor');
-                let processedText = "";
-
-                if (activeMode === 'sentence') {
-                    // [문장 최적화]: 이상한 줄바꿈을 지우고 마침표나 맥락을 고려하여 하나의 자연스러운 흐름으로 병합
-                    const rawLines = result.data.lines.map(l => l.text.trim()).filter(t => t.length > 0);
-                    processedText = rawLines.join(" ").replace(/\s+/g, " "); // 다중 공백 청소
-                } else {
-                    // [단어 최적화]: 한 글자짜리 찌꺼기 조사나 노이즈를 제거하고 유의미한 키워드 단어 배열로 나열
-                    const rawWords = result.data.words.map(w => w.text.trim());
-                    const filteredWords = rawWords.filter(w => {
-                        return w.length > 1 && !/^[은는이가을를과와도]$/.test(w); // 불필요 조사 필터링
-                    });
-                    processedText = filteredWords.join("   |   "); // 단어 구분 가독성 매핑
+                if (words.length === 0) {
+                    statusBar.innerText = "❌ 인식된 텍스트가 없습니다.";
+                    uploadBtn.disabled = false;
+                    btnText.innerText = "캡처 선택 (의미 있는 행 단위 추출)";
+                    return;
                 }
 
-                if (processedText.trim()) {
-                    // 실시간 중복 저장 방지 필터 (바로 전 메모와 내용이 80% 이상 같으면 스킵)
-                    if (memos.length > 0 && memos[0].content === processedText.trim()) {
-                        if(isLive) statusBar.innerText = "💤 변경사항 없음 (동일 문장 스킵 중)";
-                        return;
-                    }
+                // --- [고도화 알고리즘 1: 불필요 텍스트 필터링] ---
+                const filteredWords = words.filter(w => {
+                    const text = w.text.trim();
+                    
+                    // 1. 의미 없는 단순 노이즈 기호 제거 (., -, _, =, |, * 등 정제)
+                    if (/^[.,\-_=|*+:^~'""`‘’“”()\[\]{}<>!?]+$/.test(text)) return false;
+                    
+                    // 2. OCR 왜곡으로 생기는 무의미한 한 글자 자음/모음 찌꺼기 필터링
+                    if (/^[ㄱ-ㅎㅏ-ㅣ]$/.test(text)) return false;
+                    
+                    // 3. 너무 짧은 노이즈성 한 글자 단어 중 영문/기호만 있는 것 필터링 (한글은 1자 단어도 포함하되 특수문자 연동 제거)
+                    if (text.length === 1 && /^[a-zA-Z0-9]$/.test(text)) return false;
 
+                    return true;
+                });
+
+                if (filteredWords.length === 0) {
+                    statusBar.innerText = "❌ 필터링 후 남은 유의미한 데이터가 없습니다.";
+                    uploadBtn.disabled = false;
+                    btnText.innerText = "캡처 선택 (의미 있는 행 단위 추출)";
+                    return;
+                }
+
+                // --- [고도화 알고리즘 2: 정밀 행(줄) 분리 및 수평 정렬] ---
+                // Y축 오차범위를 글자 높이 기준으로 계산하여 같은 줄끼리 바인딩
+                filteredWords.sort((a, b) => a.bbox.y0 - b.bbox.y0);
+                
+                const rows = [];
+                let currentSrcRow = [filteredWords[0]];
+
+                for (let i = 1; i < filteredWords.length; i++) {
+                    const currentWord = filteredWords[i];
+                    const lastWordInRow = currentSrcRow[currentSrcRow.length - 1];
+                    const rowHeight = lastWordInRow.bbox.y1 - lastWordInRow.bbox.y0;
+
+                    // 단어 간 Y축 차이가 글자 높이의 60% 이내면 동일한 행(줄)으로 묶음
+                    if (currentWord.bbox.y0 - lastWordInRow.bbox.y0 <= rowHeight * 0.6) {
+                        currentSrcRow.push(currentWord);
+                    } else {
+                        rows.push(currentSrcRow);
+                        currentSrcRow = [currentWord];
+                    }
+                }
+                rows.push(currentSrcRow);
+
+                // --- [고도화 알고리즘 3: 행 내부의 열 간격 최적화 정렬] ---
+                let finalCleanText = "";
+                
+                rows.forEach(row => {
+                    row.sort((a, b) => a.x0 - b.x0); // 왼쪽 단어부터 정렬
+                    
+                    let rowStr = "";
+                    for (let j = 0; j < row.length; j++) {
+                        if (j > 0) {
+                            const gap = row[j].bbox.x0 - row[j-1].bbox.x1;
+                            // 단어 사이의 거리가 다소 떨어져 있다면 탭 공간(열 분리) 부여, 가까우면 한 칸 공백만 부여
+                            if (gap > 35) {
+                                rowStr += "    "; // 탭 형태의 열 구분
+                            } else {
+                                rowStr += " "; // 일반 단어 띄어쓰기
+                            }
+                        }
+                        rowStr += row[j].text;
+                    }
+                    
+                    // 정제 후 빈 줄이 된 행은 추가하지 않음
+                    if (rowStr.trim().length > 0) {
+                        finalCleanText += rowStr + "\n";
+                    }
+                });
+
+                if (finalCleanText.trim()) {
                     const newMemo = {
                         id: Date.now(),
                         time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-                        mode: activeMode === 'sentence' ? '문장' : '단어',
-                        content: processedText.trim()
+                        content: finalCleanText.trim()
                     };
                     memos.unshift(newMemo);
-                    localStorage.setItem('my_stream_memos', JSON.stringify(memos));
+                    localStorage.setItem('my_clean_row_memos', JSON.stringify(memos));
                     renderMemos();
-                    statusBar.innerText = `✅ [${newMemo.mode}] 모드로 가공되어 기록되었습니다!`;
+                    statusBar.innerText = "✅ 유의미한 텍스트가 행 기준으로 정렬되어 저장되었습니다!";
+                } else {
+                    statusBar.innerText = "❌ 정제된 데이터 추출에 실패했습니다.";
                 }
+
             } catch (err) {
                 console.error(err);
-                if(!isLive) statusBar.innerText = "❌ 분석 오류: " + err.message;
+                statusBar.innerText = "❌ 오류: " + err.message;
+            } finally {
+                uploadBtn.disabled = false;
+                btnText.innerText = "캡처 선택 (의미 있는 행 단위 추출)";
+                imageInput.value = "";
             }
-        }
+        });
 
         clearAllBtn.addEventListener('click', () => {
             if(memos.length === 0) return;
             if(confirm('모든 메모를 삭제하시겠습니까?')) {
                 memos = [];
-                localStorage.removeItem('my_stream_memos');
+                localStorage.removeItem('my_clean_row_memos');
                 renderMemos();
                 statusBar.innerText = "🗑️ 모든 메모가 삭제되었습니다.";
             }
@@ -239,7 +201,7 @@
 
         window.deleteMemo = function(id) {
             memos = memos.filter(m => m.id !== id);
-            localStorage.setItem('my_stream_memos', JSON.stringify(memos));
+            localStorage.setItem('my_clean_row_memos', JSON.stringify(memos));
             renderMemos();
             statusBar.innerText = "🗑️ 선택한 메모가 삭제되었습니다.";
         }
@@ -258,18 +220,15 @@
 
             memos.forEach(m => {
                 const memoDiv = document.createElement('div');
-                memoDiv.className = "memo-item bg-slate-800/50 border border-slate-700/40 p-3 rounded-lg relative transition-all";
-                const badgeColor = m.mode === '문장' ? 'bg-violet-500/20 text-violet-300 border-violet-500/30' : 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30';
-                
+                memoDiv.className = "memo-item bg-slate-800/40 border border-slate-700/40 p-3 rounded-lg relative transition-all";
                 memoDiv.innerHTML = `
-                    <div class="flex justify-between items-center mb-1.5 border-b border-slate-800/80 pb-1">
-                        <div class="flex items-center gap-2">
-                            <span class="text-[10px] text-slate-500 font-bold">${m.time}</span>
-                            <span class="text-[9px] px-1.5 py-0.5 rounded border ${badgeColor}">${m.mode} 최적화</span>
-                        </div>
+                    <div class="flex justify-between items-center mb-2 border-b border-slate-800/80 pb-1">
+                        <span class="text-[10px] text-slate-500 font-bold">${m.time} [노이즈 정제 완료]</span>
                         <button onclick="deleteMemo(${m.id})" class="text-xs text-slate-500 hover:text-rose-400 px-1">✕</button>
                     </div>
-                    <p class="text-xs text-slate-200 leading-relaxed select-text cursor-text break-all">${m.content}</p>
+                    <div class="overflow-x-auto custom-scrollbar whitespace-pre py-1">
+                        <p class="clean-row-font text-xs text-cyan-300 leading-relaxed select-text cursor-text">${m.content}</p>
+                    </div>
                 `;
                 memoList.appendChild(memoDiv);
             });
@@ -277,3 +236,4 @@
     </script>
 </body>
 </html>
+
