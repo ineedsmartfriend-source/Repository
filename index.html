@@ -110,7 +110,7 @@ img{
 <body>
 
 <header>
-  <div>OCR AI Studio FIXED (특수문자 & 다국어 강화판)</div>
+  <div>OCR AI Studio FIXED (좌상단 정렬 & 문맥 결합판)</div>
 </header>
 
 <div class="container">
@@ -121,12 +121,12 @@ img{
   </div>
 
   <div class="card">
-    <button onclick="app.runOCR()">OCR 실행 및 다국어·문맥 교정</button>
+    <button onclick="app.runOCR()">OCR 실행 및 공간 문맥 교정</button>
   </div>
 
   <div class="card">
-    <h3>OCR 결과 (자동 교정됨)</h3>
-    <textarea id="ocr" rows="8"></textarea>
+    <h3>OCR 결과 (좌상단 배치 및 문맥 복원 완료)</h3>
+    <textarea id="ocr" rows="12"></textarea>
     <button onclick="app.viewFull('교정된 OCR 결과', 'ocr')">전체보기</button>
   </div>
 
@@ -156,7 +156,7 @@ img{
       <h3 id="modalTitle">타이틀</h3>
       <button class="close-btn" onclick="app.closeModal()">닫기</button>
     </div>
-    <div id="modalBody" class="modal-body"></div>
+    <div id="fullViewModalBody" class="modal-body"></div>
   </div>
 </div>
 
@@ -165,7 +165,7 @@ img{
 <script>
 
 /* =========================
-   OCR ENGINE (다국어 확장)
+   OCR ENGINE (공간 좌표 데이터 추출)
 ========================= */
 class OCR {
   constructor(){
@@ -174,11 +174,9 @@ class OCR {
   }
 
   async init(){
-    // 다국어 확장을 위해 한글(kor), 영어(eng), 일어(jpn), 중국어 간체/번체(chi_sim, chi_tra)를 기본 세팅합니다.
     this.worker = await Tesseract.createWorker("kor+eng+jpn+chi_sim+chi_tra", 1, {
       logger: m => console.log(m)
     });
-
     this.ready = true;
   }
 
@@ -186,56 +184,121 @@ class OCR {
     if(!this.ready){
       await this.init();
     }
-
+    // 문자의 세부 좌표와 블록 정보까지 받아오도록 최적화
     const res = await this.worker.recognize(image);
-    return res.data.text || "";
+    return res.data;
   }
 }
 
 /* =========================
-   SIMPLE AI (LOCAL) - 특수문자 및 다국어 정제 고도화
+   SIMPLE AI (LOCAL) - 공간 재배치 및 의미론적 문장 결합
 ========================= */
 class AI {
 
-  static cleanText(text) {
-    if (!text) return "";
+  // 1. 이미지 상의 좌상단(Top-Left) 좌표를 기준으로 우측 및 아래 방향으로 텍스트 정렬 및 결합
+  static processSpatialLayout(ocrData) {
+    if (!ocrData || !ocrData.words) return "";
 
-    return text
-      .split("\n")
-      .map(line => {
-        let l = line.trim();
-        
-        // 1. 단독으로 깨져서 굴러다니는 의미 없는 특수문자 기호행 전체 청소 (\ wv ¢, . Sr +, |? == 등)
-        if (/^[\\\/•\.\*\-\+\s¢®©=\|?:\(\)\[\]{}’”"‘'<>«»;_·]{1,6}$/.test(l)) return "";
-        
-        // 2. [다국어 지원 강화] 문장 시작점에 붙은 시스템 노이즈 불필요 기호 걷어내기 
-        // (한글, 영어, 일어 가타카나/히라가나/한자, 중국어 한자 영역을 보존하며 앞쪽 기호 제거)
-        l = l.replace(/^[@®©•\*\-\+\s\d\/\d\|?=《<«]+/g, "").trim(); 
-        
-        // 3. 문장 중간에 잘못 스캔된 악성 특수기호 파편 제거 (글자 사이사이에 낀 기호)
-        l = l.replace(/[\\\/\|¢\+=¢®©«»]/g, ""); 
+    // 유효한 단어 객체들만 추출 및 정제
+    let words = ocrData.words.map(w => ({
+      text: w.text.trim(),
+      x: w.bbox.x0,
+      y: w.bbox.y0,
+      h: w.bbox.y1 - w.bbox.y0
+    })).filter(w => w.text.length > 0);
 
-        // 4. 단어 가독성을 해치는 극단적인 자소 분리 및 흔한 에러 매핑 교정
-        l = l.replace(/할 일 을/g, "할 일을");
-        l = l.replace(/정 학 히/g, "정확히");
-        l = l.replace(/지 시 하기/g, "지시하기");
-        l = l.replace(/달 사시/g, "달성 시");
-        l = l.replace(/시 활용/g, "AI 활용");
-        l = l.replace(/fee/gi, "비용(Fee)");
+    if (words.length === 0) return "";
 
-        return l.trim();
-      })
-      .filter(line => line.length > 0) // 깨끗한 문장 라인만 남기고 빈 칸 제외
-      .join("\n");
+    // 행(Line) 구분을 위한 임계값 (글자 평균 높이의 50% 수준을 기준점 설정)
+    let avgHeight = words.reduce((sum, w) => sum + w.h, 0) / words.length;
+    let rowThreshold = avgHeight * 0.5;
+
+    let lines = [];
+
+    // 좌상단 정렬을 위한 좌표 기반 2단계 정렬 수행
+    while (words.length > 0) {
+      // 가장 상단(y가 가장 작은 값 = 최좌상단 기준점)의 단어를 선택
+      words.sort((a, b) => a.y - b.y || a.x - b.x);
+      let currentWord = words.shift();
+      let currentLine = [currentWord];
+
+      // 동일한 행선상(우측 방향)에 위치한 단어들을 검색 및 매칭
+      for (let i = 0; i < words.length; i++) {
+        if (Math.abs(words[i].y - currentWord.y) <= rowThreshold) {
+          currentLine.push(words[i]);
+          words.splice(i, 1);
+          i--;
+        }
+      }
+
+      // 찾아낸 한 행의 단어들을 왼쪽에서 오른쪽(x 기준 오름차순)으로 최종 정렬
+      currentLine.sort((a, b) => a.x - b.x);
+      lines.push({
+        y: currentWord.y,
+        text: currentLine.map(w => w.text).join(" ")
+      });
+    }
+
+    // 최종적으로 위에서 아래로(y 오름차순) 전체 행들을 정렬 및 조합
+    lines.sort((a, b) => a.y - b.y);
+    
+    // 구조가 잡힌 텍스트 배열을 문맥 필터로 전달
+    return this.cleanAndGlueContext(lines.map(l => l.text));
+  }
+
+  // 2. 파편화된 자소/기호 정제 및 끊긴 단어/문맥 결합 엔진
+  static cleanAndGlueContext(textLines) {
+    let cleanedLines = textLines.map(line => {
+      let l = line.trim();
+      
+      // 단독으로 생성된 악성 특수문자 노이즈 라인 완전 무시 및 청소
+      if (/^[\\\/•\.\*\-\+\s¢®©=\|?:\(\)\[\]{}’”"‘'<>«»;_·]{1,6}$/.test(l)) return "";
+      
+      // 문장 시작부에 파편화되어 붙어있는 불필요 기호 정규식 제거
+      l = l.replace(/^[@®©•\*\-\+\s\d\/\d\|?=《<«]+/g, "").trim(); 
+      // 글자 사이에 난입한 오타 유발용 특수부호 제거
+      l = l.replace(/[\\\/\|¢\+=¢®©«»]/g, ""); 
+
+      return l;
+    }).filter(line => line.length > 0);
+
+    let finalContext = [];
+    
+    // 문맥 중심의 유기적 문장 구성 알고리즘
+    for (let i = 0; i < cleanedLines.length; i++) {
+      let current = cleanedLines[i];
+      
+      // 스크린샷처럼 띄어쓰기가 비정상적으로 조각난 고정 형태 사전 대응 매핑
+      current = current.replace(/할 일 을/g, "할 일을");
+      current = current.replace(/정 학 히/g, "정확히");
+      current = current.replace(/지 시 하기/g, "지시하기");
+      current = current.replace(/달 사시/g, "달성 시");
+      current = current.replace(/시 활용/g, "AI 활용");
+      current = current.replace(/fee/gi, "비용(Fee)");
+
+      // 이전 문장이 완성형 문장 기호 없이 끊어졌거나 
+      // 현재 문장이 조사('을', '를', '에서' 등)로 연결되는 경우 앞줄에 접착
+      if (i > 0 && finalContext.length > 0) {
+        let prev = finalContext[finalContext.length - 1];
+        
+        if (!/[\.!\?]$/.test(prev) && /^[을를은는이가에과와고로에서만도]/.test(current)) {
+          finalContext[finalContext.length - 1] = prev + " " + current;
+          continue;
+        }
+      }
+      finalContext.push(current);
+    }
+
+    return finalContext.join("\n");
   }
 
   static summary(text){
+    if(!text) return "요약할 내용이 없습니다.";
     const lines = text.split("\n");
-    return lines.slice(0, 3).join("\n") || "요약 내용을 추출할 수 없습니다.";
+    return lines.slice(0, 3).join("\n");
   }
 
   static keywords(text){
-    // 다국어(영어, 한글, 일어, 중국어 문자군) 정규식으로 키워드 매칭 범위 확장
     const words = text.toLowerCase().match(/[a-z가-힣一-龥ぁ-んァ-ヶ]{2,}/g) || [];
     const map = {};
 
@@ -243,7 +306,7 @@ class AI {
       map[w] = (map[w]||0)+1;
     });
 
-    const stopWords = ["현재", "또는", "대해", "이것", "함께", "각각"];
+    const stopWords = ["현재", "또는", "대해", "이것", "함께", "각각", "조건"];
 
     return Object.entries(map)
       .filter(([word]) => !stopWords.includes(word))
@@ -255,7 +318,7 @@ class AI {
 
   static title(text){
     const firstLine = text.split("\n")[0];
-    return firstLine ? firstLine.slice(0, 30) : "OCR 분석 문서";
+    return firstLine ? firstLine.slice(0, 30) : "공간 정렬 분석 문서";
   }
 }
 
@@ -274,8 +337,7 @@ class App {
     this.titleEl = document.getElementById("title");
 
     this.modal = document.getElementById("fullViewModal");
-    this.modalTitle = document.getElementById("modalTitle");
-    this.modalBody = document.getElementById("modalBody");
+    this.modalBody = document.getElementById("fullViewModalBody");
 
     this.ocr = new OCR();
     this.init();
@@ -312,17 +374,17 @@ class App {
 
     img.onload = async ()=>{
       try {
-        const rawText = await this.ocr.run(img);
-        const cleanedText = AI.cleanText(rawText);
+        const rawOcrData = await this.ocr.run(img);
+        const processedText = AI.processSpatialLayout(rawOcrData);
 
-        this.ocrEl.value = cleanedText;
-        this.summaryEl.value = AI.summary(cleanedText);
-        this.keywordEl.value = AI.keywords(cleanedText);
-        this.titleEl.value = AI.title(cleanedText);
+        this.ocrEl.value = processedText;
+        this.summaryEl.value = AI.summary(processedText);
+        this.keywordEl.value = AI.keywords(processedText);
+        this.titleEl.value = AI.title(processedText);
 
       } catch(err){
         console.error(err);
-        alert("OCR 실행 중 오류가 발생했습니다.");
+        alert("OCR 및 공간 문맥 정렬 분석 중 오류가 발생했습니다.");
       }
     };
   }
@@ -334,7 +396,7 @@ class App {
       return;
     }
     
-    this.modalTitle.innerText = title;
+    document.getElementById("modalTitle").innerText = title;
     this.modalBody.innerText = targetElement.value;
     this.modal.style.display = "flex";
   }
