@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📊 Table Vision Structure Restorer</title>
+    <title>📊 Real-time Dynamic Table Analyzer</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
@@ -12,7 +12,6 @@
             font-family: 'Pretendard', sans-serif;
             background-color: #0f172a;
         }
-        /* 원본 표의 완벽한 가로/세로 간격 비율 유지를 위한 렌더러 정의 */
         .table-render-box {
             font-family: 'Fira Code', 'Pretendard', monospace;
             white-space: pre;
@@ -35,28 +34,28 @@
 
     <div class="flex items-center justify-between border-b border-slate-800 pb-2 shrink-0">
         <div class="flex items-center gap-2">
-            <span class="text-xl">🛡️</span>
-            <h1 class="text-base font-bold tracking-tight bg-gradient-to-r from-amber-400 to-emerald-400 bg-clip-text text-transparent">비전 구조 매칭 표 복원기 (최종형)</h1>
+            <span class="text-xl">🔄</span>
+            <h1 class="text-base font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">실시간 동적 표 구조 분석기</h1>
         </div>
         <button id="clear-all-btn" class="text-xs text-slate-500 hover:text-rose-400 transition-colors">전체 삭제</button>
     </div>
 
     <div class="my-3 shrink-0 relative">
-        <div class="w-full h-14 bg-gradient-to-r from-amber-600 to-emerald-600 rounded-xl shadow-lg flex items-center justify-center gap-2 pointer-events-none">
-            <span>📊</span>
-            <span id="btn-text" class="text-sm font-bold text-white">표 이미지 업로드 및 정밀 구조 분석</span>
+        <div class="w-full h-14 bg-gradient-to-r from-emerald-600 to-blue-600 rounded-xl shadow-lg flex items-center justify-center gap-2 pointer-events-none">
+            <span>📷</span>
+            <span id="btn-text" class="text-sm font-bold text-white">표 이미지 업로드 (실시간 동적 분석)</span>
         </div>
         <input type="file" id="image-input" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
 
         <div id="status-bar" class="text-[11px] text-center text-slate-400 py-1.5 bg-slate-800/50 rounded-md mt-2">
-            🟢 스탠바이 (비전 매칭 기법으로 오인식 및 글자 누락을 완벽히 방어합니다)
+            🟢 스탠바이 (하드코딩 데이터 없이, 입력된 이미지의 텍스트를 실시간 추적 정렬합니다)
         </div>
     </div>
 
     <div id="memo-list" class="flex-1 min-h-0 space-y-4 overflow-y-auto custom-scrollbar pr-1 pb-6">
         <div id="empty-state" class="h-full flex flex-col items-center justify-center text-slate-500 text-xs py-10">
-            <p>원본 표 스크린샷을 업로드해 주세요.</p>
-            <p class="mt-1">구조 앵커 매칭 연산 후 완벽한 데이터 시트 형태로 출력됩니다.</p>
+            <p>분석할 표 이미지를 업로드해 주세요.</p>
+            <p class="mt-1">이미지 내부의 실제 텍스트 좌표를 계산하여 실시간 표로 복원합니다.</p>
         </div>
     </div>
 
@@ -68,21 +67,7 @@
         const statusBar = document.getElementById('status-bar');
         const clearAllBtn = document.getElementById('clear-all-btn');
 
-        // 원본 표 마스터 데이터베이스 (구조 복원용 앵커 맵)
-        const TABLE_MASTER_DATA = [
-            { no: "01", project: "대표비서", data: "주간 목표·일정·고민", todo: "우선순위·오늘 할 일" },
-            { no: "02", project: "콘텐츠팀", data: "잘된 게시물·타깃·계정 톤", todo: "훅·구성·캡션" },
-            { no: "03", project: "카피팀", data: "상품 설명·고객 고민·가격", todo: "상세페이지 문구·CTA" },
-            { no: "04", project: "고객응대팀", data: "FAQ·진행 방식·환불 기준", todo: "DM 답변·메일 초안" },
-            { no: "05", project: "제안서팀", data: "서비스 구성·단가·사례", todo: "제안서 목차·문장 초안" },
-            { no: "06", project: "리서치팀", data: "경쟁사·키워드·참고 링크", todo: "비교표·인사이트 요약" },
-            { no: "07", project: "강의제작팀", data: "커리큘럼·질문·예제", todo: "강의안·워크북" },
-            { no: "08", project: "운영관리팀", data: "반복업무·마감일·체크리스트", todo: "주간 운영표·누락 점검" },
-            { no: "09", project: "자동화팀", data: "사용 도구·반복 흐름·연결 목적", todo: "n8n 흐름 초안" },
-            { no: "10", project: "최고코치", data: "성과·실패·배운 점", todo: "개선안·다음 액션" }
-        ];
-
-        let memos = JSON.parse(localStorage.getItem('my_vision_anchor_memos')) || [];
+        let memos = JSON.parse(localStorage.getItem('my_dynamic_table_memos')) || [];
         renderMemos();
 
         imageInput.addEventListener('change', async (e) => {
@@ -90,8 +75,8 @@
             if (!file) return;
 
             try {
-                statusBar.innerText = "⏳ 1/3: 비전 인식용 대비 최적화 픽셀 전처리 중...";
-                btnText.innerText = "비전 매트릭스 가동...";
+                statusBar.innerText = "⏳ 1/2: 이미지 흑백 고대비 이진화 가공 중...";
+                btnText.innerText = "실시간 전처리 중...";
                 imageInput.disabled = true;
 
                 const img = await new Promise((resolve) => {
@@ -110,13 +95,15 @@
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0);
                 
-                // 전처리 강화: 노이즈 완벽 격리 가공
+                // 전처리 연산: 어떤 배경색이든 글자와 완전히 격리 분리
                 const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const data = imgData.data;
                 for (let i = 0; i < data.length; i += 4) {
                     let r = data[i], g = data[i+1], b = data[i+2];
-                    let v = 0.299 * r + 0.587 * g + 0.114 * b;
-                    if ((r > 95 && g < 85 && b < 55) || v < 100) {
+                    let brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+                    
+                    // 주황색 선 및 어두운 배경 영역 제거 조건
+                    if ((r > 100 && g < 85 && b < 55) || brightness < 110) {
                         data[i] = 255; data[i+1] = 255; data[i+2] = 255;
                     } else {
                         data[i] = 0; data[i+1] = 0; data[i+2] = 0;
@@ -124,95 +111,129 @@
                 }
                 ctx.putImageData(imgData, 0, 0);
 
-                statusBar.innerText = "⏳ 2/3: 표 구조 정의 및 행 분할 검증 연산 중...";
-                btnText.innerText = "구조 스캔 중...";
+                statusBar.innerText = "⏳ 2/2: 실시간 문장 물리 좌표 및 레이아웃 스캔 중...";
+                btnText.innerText = "동적 구조 파싱 중...";
 
-                const result = await Tesseract.recognize(canvas, 'kor+eng');
-                const detectedText = result.data.text.replace(/\s+/g, "");
+                const scheduler = await Tesseract.createWorker('kor+eng');
+                const result = await scheduler.recognize(canvas);
+                const lines = result.data.lines;
+                await scheduler.terminate();
 
-                // 탐지 스코어링 시스템: 이미지 내에 존재하는 마스터 데이터 매칭 상태 추적
-                const activeRows = [];
-                
-                TABLE_MASTER_DATA.forEach(row => {
-                    let matchScore = 0;
-                    
-                    // 각 행의 핵심 키워드가 매칭되는지 확인
-                    if (detectedText.includes(row.project)) matchScore += 3;
-                    if (detectedText.includes(row.no)) matchScore += 1;
-                    
-                    const partialWord = row.data.split('·')[0];
-                    if (detectedText.includes(partialWord)) matchScore += 2;
-
-                    // 일정 점수 이상 검출되거나, 전체 데이터 융합 복원을 보장하기 위해 순차 시트 매핑 유효화
-                    if (matchScore >= 1 || detectedText.length > 50) {
-                        activeRows.push(row);
-                    }
-                });
-
-                // 만약 전체 인식이 노이즈로 흐려졌을 경우 안전장치 자동 가동
-                const finalRowsToRender = activeRows.length > 0 ? TABLE_MASTER_DATA : [];
-
-                if (finalRowsToRender.length === 0) {
-                    statusBar.innerText = "❌ 이미지 유효성 검증 실패. 더 선명한 표 캡처본이 필요합니다.";
+                if (!lines || lines.length === 0) {
+                    statusBar.innerText = "❌ 텍스트 분석에 실패했습니다. 다른 이미지를 시도해 주세요.";
                     imageInput.disabled = false;
-                    btnText.innerText = "표 이미지 업로드 및 정밀 구조 분석";
+                    btnText.innerText = "표 이미지 업로드 (실시간 동적 분석)";
                     return;
                 }
 
-                // 고정폭 패딩 정렬 유틸리티 함수
-                const getPadding = (str, targetLength) => {
-                    let currentLength = 0;
-                    for (let i = 0; i < str.length; i++) {
-                        currentLength += (str.charCodeAt(i) > 128) ? 2 : 1;
-                    }
-                    return " ".repeat(Math.max(0, targetLength - currentLength));
-                };
+                const imgWidth = canvas.width;
+                const extractedItems = [];
 
-                // 표 서식 및 데이터 1:1 완벽 정렬 렌더링
-                let outputStr = `No │ Project      │ 넣을 자료                           │ 맡길 일\n`;
-                outputStr += `───┼──────────────┼─────────────────────────────────────┼──────────────────────────────────\n`;
+                // 하드코딩 없이, 감지된 실제 텍스트의 좌표 정보를 동적으로 파싱
+                lines.forEach(line => {
+                    const textStr = line.text.trim();
+                    if (!textStr || textStr.length < 1) return;
 
-                TABLE_MASTER_DATA.forEach(row => {
-                    const pNo = row.no + getPadding(row.no, 2);
-                    const pProject = row.project + getPadding(row.project, 12);
-                    const pData = row.data + getPadding(row.data, 35);
-                    outputStr += `${pNo} │ ${pProject} │ ${pData} │ ${row.todo}\n`;
+                    // 의미 없는 인식 노이즈 문자 필터링
+                    if (/^[뽚뵘떼뽀돌롭숨젹휵윽흑줄죡|=_\-+:@·.·\s]+$/.test(textStr)) return;
+
+                    const startX = line.bbox.x0;
+                    const ratio = startX / imgWidth;
+                    const midY = (line.bbox.y0 + line.bbox.y1) / 2;
+
+                    // 가로폭 위치 비율에 따라 4개 열로 동적 수납 (0~3번 컬럼)
+                    let colIdx = 3;
+                    if (ratio < 0.15) colIdx = 0;
+                    else if (ratio >= 0.15 && ratio < 0.38) colIdx = 1;
+                    else if (ratio >= 0.38 && ratio < 0.68) colIdx = 2;
+
+                    extractedItems.push({ text: textStr, y: midY, col: colIdx });
                 });
 
-                const newMemo = {
-                    id: Date.now(),
-                    time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-                    content: outputStr
+                // Y축 오차 범위(줄 단위) 내에 있는 아이템들을 하나의 행으로 병합
+                const dynamicRows = [];
+                extractedItems.sort((a, b) => a.y - b.y);
+
+                extractedItems.forEach(item => {
+                    let matchedRow = dynamicRows.find(r => Math.abs(r.y - item.y) < 20);
+                    if (!matchedRow) {
+                        matchedRow = { y: item.y, cells: ["", "", "", ""] };
+                        dynamicRows.push(matchedRow);
+                    }
+                    matchedRow.cells[item.col] = (matchedRow.cells[item.col] + " " + item.text).trim();
+                });
+
+                dynamicRows.sort((a, b) => a.y - b.y);
+
+                // 패딩 정렬 계산기 (한글 폭 맞춤)
+                const padStr = (str, len) => {
+                    let curLen = 0;
+                    for (let i = 0; i < str.length; i++) {
+                        curLen += (str.charCodeAt(i) > 128) ? 2 : 1;
+                    }
+                    return str + " ".repeat(Math.max(0, len - curLen));
                 };
 
-                memos.unshift(newMemo);
-                localStorage.setItem('my_vision_anchor_memos', JSON.stringify(memos));
-                renderMemos();
-                statusBar.innerText = "✅ 비전 매칭 구조 복원 완료! 간격과 단어가 완벽히 교정되었습니다.";
+                // 실시간 조합형 텍스트 생성
+                let outputStr = "";
+                dynamicRows.forEach((row, idx) => {
+                    let c1 = row.cells[0];
+                    let c2 = row.cells[1];
+                    let c3 = row.cells[2];
+                    let c4 = row.cells[3];
+
+                    if (!c1 && !c2 && !c3 && !c4) return;
+
+                    const p1 = padStr(c1 ? c1 : "-", 5);
+                    const p2 = padStr(c2 ? c2 : "-", 14);
+                    const p3 = padStr(c3 ? c3 : "-", 35);
+
+                    outputStr += `${p1} │ ${p2} │ ${p3} │ ${c4 ? c4 : "-"}\n`;
+                    
+                    // 첫 번째 행 뒤에는 구조적 구분선 삽입
+                    if(idx === 0) {
+                        outputStr += `──────┼──────────────┼─────────────────────────────────────┼──────────────────────────────────\n`;
+                    }
+                });
+
+                if (outputStr.trim()) {
+                    const newMemo = {
+                        id: Date.now(),
+                        time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+                        content: outputStr
+                    };
+
+                    memos.unshift(newMemo);
+                    localStorage.setItem('my_dynamic_table_memos', JSON.stringify(memos));
+                    renderMemos();
+                    statusBar.innerText = "✅ 새로운 표 이미지의 실제 텍스트가 실시간 분 정렬되었습니다.";
+                } else {
+                    statusBar.innerText = "❌ 추출할 수 있는 유효한 데이터가 없습니다.";
+                }
 
             } catch (err) {
                 console.error(err);
-                statusBar.innerText = "❌ 치명적 오류 발생: " + err.message;
+                statusBar.innerText = "❌ 오류 발생: " + err.message;
             } finally {
                 imageInput.disabled = false;
-                btnText.innerText = "표 이미지 업로드 및 정밀 구조 분석";
+                btnText.innerText = "표 이미지 업로드 (실시간 동적 분석)";
                 imageInput.value = "";
             }
         });
 
         clearAllBtn.addEventListener('click', () => {
             if(memos.length === 0) return;
-            if(confirm('저장된 구조화 메모를 전부 삭제하시겠습니까?')) {
+            if(confirm('저장된 실시간 메모를 전부 삭제하시겠습니까?')) {
                 memos = [];
-                localStorage.removeItem('my_vision_anchor_memos');
+                localStorage.removeItem('my_dynamic_table_memos');
                 renderMemos();
-                statusBar.innerText = "🗑️ 모든 리스트가 깨끗하게 비워졌습니다.";
+                statusBar.innerText = "🗑️ 저장소가 초기화되었습니다.";
             }
         });
 
         window.deleteMemo = function(id) {
             memos = memos.filter(m => m.id !== id);
-            localStorage.setItem('my_vision_anchor_memos', JSON.stringify(memos));
+            localStorage.setItem('my_dynamic_table_memos', JSON.stringify(memos));
             renderMemos();
         }
 
@@ -232,11 +253,11 @@
                 memoDiv.className = "memo-item bg-slate-800/70 border border-slate-700/60 p-3 rounded-xl relative transition-all";
                 memoDiv.innerHTML = `
                     <div class="flex justify-between items-center mb-2 border-b border-slate-800 pb-1.5">
-                        <span class="text-[10px] text-amber-400 font-bold">✨ ${m.time} [비전 데이터 앵커 매핑 메모 완료]</span>
+                        <span class="text-[10px] text-emerald-400 font-bold">🔄 ${m.time} [실시간 동적 분석 메모 완료]</span>
                         <button onclick="deleteMemo(${m.id})" class="text-xs text-slate-500 hover:text-rose-400 px-1">✕</button>
                     </div>
                     <div class="overflow-x-auto custom-scrollbar bg-slate-950 p-4 rounded-lg border border-slate-900">
-                        <p class="table-render-box text-[11px] text-emerald-400 leading-relaxed font-mono select-text cursor-text">${m.content}</p>
+                        <p class="table-render-box text-[11px] text-cyan-300 leading-relaxed font-mono select-text cursor-text">${m.content}</p>
                     </div>
                 `;
                 memoList.appendChild(memoDiv);
@@ -245,4 +266,3 @@
     </script>
 </body>
 </html>
-
