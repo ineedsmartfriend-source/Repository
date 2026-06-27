@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ Smart Row & Sentence Memory</title>
+    <title>⚡ Smart Table Grid OCR</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
@@ -14,6 +14,7 @@
         }
         .custom-scrollbar::-webkit-scrollbar {
             width: 4px;
+            height: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
             background: #1e293b;
@@ -28,8 +29,8 @@
 
     <div class="flex items-center justify-between border-b border-slate-800 pb-2 shrink-0">
         <div class="flex items-center gap-2">
-            <span class="text-xl">✍️</span>
-            <h1 class="text-base font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">스마트 어휘 정렬 메모장</h1>
+            <span class="text-xl">📊</span>
+            <h1 class="text-base font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">스마트 표 구조 OCR 메모장</h1>
         </div>
         <button id="clear-all-btn" class="text-xs text-slate-500 hover:text-rose-400 transition-colors">전체 삭제</button>
     </div>
@@ -37,20 +38,20 @@
     <div class="my-3 space-y-2 shrink-0">
         <input type="file" id="image-input" accept="image/*" class="hidden">
         
-        <button id="upload-btn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 active:scale-[0.98] text-white font-bold py-4 px-4 rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2">
-            <span>✨</span>
-            <span id="btn-text">캡처 사진 선택 (문맥·행 정렬 추출)</span>
+        <button id="upload-btn" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 active:scale-[0.98] text-white font-bold py-4 px-4 rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2">
+            <span>📊</span>
+            <span id="btn-text">표 캡처 선택 (줄·칸 매핑 추출)</span>
         </button>
 
         <div id="status-bar" class="text-[11px] text-center text-slate-400 py-1.5 bg-slate-800/50 rounded-md">
-            🟢 스탠바이 (글자를 쪼개지 않고 문장과 행을 유지합니다)
+            🟢 스탠바이 (표의 열과 행 위치를 감지하여 어휘를 정렬합니다)
         </div>
     </div>
 
     <div id="memo-list" class="flex-1 min-h-0 space-y-4 overflow-y-auto custom-scrollbar pr-1 pb-6">
         <div id="empty-state" class="h-full flex flex-col items-center justify-center text-slate-500 text-xs py-10">
-            <p>화면 캡처 이미지를 선택하면,</p>
-            <p class="mt-1">글자 파편을 모아 의미 있는 어휘와 행 단위로 정리합니다.</p>
+            <p>표 또는 리스트 캡처 이미지를 선택하면,</p>
+            <p class="mt-1">칸을 구분하여 보기 편한 텍스트 리스트로 가공합니다.</p>
         </div>
     </div>
 
@@ -63,7 +64,7 @@
         const statusBar = document.getElementById('status-bar');
         const clearAllBtn = document.getElementById('clear-all-btn');
 
-        let memos = JSON.parse(localStorage.getItem('my_clean_lexicon_memos')) || [];
+        let memos = JSON.parse(localStorage.getItem('my_grid_table_memos')) || [];
         
         renderMemos();
 
@@ -74,111 +75,64 @@
             if (!file) return;
 
             try {
-                statusBar.innerText = "⏳ 이미지 분석 준비 중...";
-                btnText.innerText = "어휘 스캔 중...";
+                statusBar.innerText = "⏳ 이미지 격자 분석 중...";
+                btnText.innerText = "구조 스캔 중...";
                 uploadBtn.disabled = true;
 
-                statusBar.innerText = "🧠 인공지능 문맥 및 줄바꿈 분석 중...";
+                // 정밀 OCR 스캔 시작
                 const result = await Tesseract.recognize(file, 'kor');
-                
-                // 단어(words) 대신 줄(lines) 단위로 뼈대를 가져와 낱글자 분리를 원천 차단합니다.
-                const lines = result.data.lines;
+                const words = result.data.words;
 
-                if (lines.length === 0) {
+                if (words.length === 0) {
                     statusBar.innerText = "❌ 인식된 텍스트가 없습니다.";
                     uploadBtn.disabled = false;
-                    btnText.innerText = "캡처 사진 선택 (문맥·행 정렬 추출)";
+                    btnText.innerText = "표 캡처 선택 (줄·칸 매핑 추출)";
                     return;
                 }
 
-                let finalCleanText = "";
-
-                // --- [어휘 및 행 보정 알고리즘] ---
-                lines.forEach(line => {
-                    // 한 줄 전체 텍스트를 가져온 뒤 불필요한 양끝 공백 제거
-                    let lineText = line.text.trim();
-                    
-                    // 1. 너무 조각난 노이즈(의미 없는 기호 조합이나 깨진 한 글자 자모음)만 필터링
-                    if (/^[.,\-_=|*+:^~'""`‘’“”()\[\]{}<>!?]+$/.test(lineText)) return;
-                    if (/^[ㄱ-ㅎㅏ-ㅣ]$/.test(lineText)) return;
-
-                    // 2. 글자 내부의 비정상적인 다중 공백(띄어쓰기 폭탄)을 일반 띄어쓰기 1칸으로 통합
-                    lineText = lineText.replace(/\s+/g, " ");
-
-                    // 3. 정제된 문장이 살아있다면 행(줄바꿈)을 유지하며 추가
-                    if (lineText.length > 0) {
-                        finalCleanText += lineText + "\n";
-                    }
+                // 1단계: 무의미한 단일 특수문자, 깨진 자모음 노이즈 1차 청소
+                const cleanWords = words.filter(w => {
+                    const txt = w.text.trim();
+                    if (/^[.,\-_=|*+:^~'""`‘’“”()\[\]{}<>!?•·]+$/.test(txt)) return false;
+                    if (/^[ㄱ-ㅎㅏ-ㅣ]$/.test(txt)) return false;
+                    if (txt.length === 1 && /^[a-zA-Z0-9]$/.test(txt) && !/^\d$/.test(txt)) return false; // 1글자짜리 영문 노이즈 제거
+                    return true;
                 });
 
-                if (finalCleanText.trim()) {
-                    const newMemo = {
-                        id: Date.now(),
-                        time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-                        content: finalCleanText.trim()
-                    };
-                    memos.unshift(newMemo);
-                    localStorage.setItem('my_clean_lexicon_memos', JSON.stringify(memos));
-                    renderMemos();
-                    statusBar.innerText = "✅ 단어와 문맥이 살아있는 메모가 저장되었습니다!";
-                } else {
-                    statusBar.innerText = "❌ 의미 있는 어휘를 추출하지 못했습니다.";
+                // 2단계: Y축 위치 기준으로 정렬하여 '행(Row)' 만들기
+                cleanWords.sort((a, b) => a.bbox.y0 - b.bbox.y0);
+                
+                const rows = [];
+                let currentSrcRow = [cleanWords[0]];
+
+                for (let i = 1; i < cleanWords.length; i++) {
+                    const currentWord = cleanWords[i];
+                    const lastWordInRow = currentSrcRow[currentSrcRow.length - 1];
+                    const rowHeight = lastWordInRow.bbox.y1 - lastWordInRow.bbox.y0;
+
+                    // 줄 간격 오차 범위 내에 있으면 같은 줄로 묶음
+                    if (currentWord.bbox.y0 - lastWordInRow.bbox.y0 <= rowHeight * 0.7) {
+                        currentSrcRow.push(currentWord);
+                    } else {
+                        rows.push(currentSrcRow);
+                        currentSrcRow = [currentWord];
+                    }
                 }
+                rows.push(currentSrcRow);
 
-            } catch (err) {
-                console.error(err);
-                statusBar.innerText = "❌ 오류: " + err.message;
-            } finally {
-                uploadBtn.disabled = false;
-                btnText.innerText = "캡처 사진 선택 (문맥·행 정렬 추출)";
-                imageInput.value = "";
-            }
-        });
+                // 3단계: 각 행 내부에서 X축(가로) 기준으로 정렬하고, 멀리 떨어진 글자는 대형 탭 간격 부여
+                let finalOutputText = "";
 
-        clearAllBtn.addEventListener('click', () => {
-            if(memos.length === 0) return;
-            if(confirm('모든 메모를 삭제하시겠습니까?')) {
-                memos = [];
-                localStorage.removeItem('my_clean_lexicon_memos');
-                renderMemos();
-                statusBar.innerText = "🗑️ 모든 메모가 삭제되었습니다.";
-            }
-        });
-
-        window.deleteMemo = function(id) {
-            memos = memos.filter(m => m.id !== id);
-            localStorage.setItem('my_clean_lexicon_memos', JSON.stringify(memos));
-            renderMemos();
-            statusBar.innerText = "🗑️ 선택한 메모가 삭제되었습니다.";
-        }
-
-        function renderMemos() {
-            if (memos.length === 0) {
-                emptyState.style.display = 'flex';
-                const items = memoList.querySelectorAll('.memo-item');
-                items.forEach(el => el.remove());
-                return;
-            }
-            
-            emptyState.style.display = 'none';
-            const items = memoList.querySelectorAll('.memo-item');
-            items.forEach(el => el.remove());
-
-            memos.forEach(m => {
-                const memoDiv = document.createElement('div');
-                memoDiv.className = "memo-item bg-slate-800/50 border border-slate-700/50 p-3 rounded-lg relative transition-all";
-                memoDiv.innerHTML = `
-                    <div class="flex justify-between items-center mb-2 border-b border-slate-800 pb-1">
-                        <span class="text-[10px] text-slate-500 font-bold">${m.time} [어휘 통합 완료]</span>
-                        <button onclick="deleteMemo(${m.id})" class="text-xs text-slate-500 hover:text-rose-400 px-1">✕</button>
-                    </div>
-                    <div class="whitespace-pre-line py-1">
-                        <p class="text-xs text-slate-200 leading-relaxed select-text cursor-text">${m.content}</p>
-                    </div>
-                `;
-                memoList.appendChild(memoDiv);
-            });
-        }
-    </script>
-</body>
-</html>
+                rows.forEach(row => {
+                    row.sort((a, b) => a.bbox.x0 - b.bbox.x0); // 왼쪽 칸부터 정렬
+                    
+                    let rowStr = "";
+                    for (let j = 0; j < row.length; j++) {
+                        if (j > 0) {
+                            const gap = row[j].bbox.x0 - row[j-1].bbox.x1;
+                            
+                            // 원본 표의 컬럼(칸) 구분을 위해 단어 간격이 크게 벌어진 경우 분리 기호 추가
+                            if (gap > 28) {
+                                rowStr += "  │  "; 
+                            } else {
+                                // 단어 내부 혹은 붙어있는 문장은 부드럽게 한 칸 공백 연결 (어휘 보존)
