@@ -42,7 +42,7 @@ textarea,input{
   color:#fff;
   box-sizing: border-box;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 #ocr {
@@ -96,40 +96,13 @@ img{
   border-radius: 20px;
   margin-top: 0;
 }
-
-/* 모달 스타일 */
-.modal {
-  display: none;
-  position: fixed;
-  top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.8);
-  z-index: 1000;
-  justify-content: center;
-  align-items: center;
-}
-.modal-content {
-  background: #171a21;
-  padding: 20px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 700px;
-  max-height: 80%;
-  overflow-y: auto;
-}
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #333;
-  padding-bottom: 10px;
-}
 </style>
 </head>
 
 <body>
 
 <header>
-  <div>OCR AI Studio FIXED (자동 간격 조정 & 요약 어시스트판)</div>
+  <div>OCR AI Studio FIXED (특수문자 필터 및 정밀 요약판)</div>
 </header>
 
 <div class="container">
@@ -140,7 +113,7 @@ img{
   </div>
 
   <div class="card">
-    <button onclick="app.runOCR()" style="width:100%; padding:12px; font-size:15px;">텍스트 정밀 추출 및 요약 정리</button>
+    <button onclick="app.runOCR()" style="width:100%; padding:12px; font-size:15px;">텍스트 정밀 추출 및 고도화 요약</button>
     <div id="progressContainer" class="progress-container">
       <div style="font-size:12px; margin-bottom:4px;" id="progressText">분석 중...</div>
       <div class="progress-bar" id="progressBar"></div>
@@ -148,7 +121,7 @@ img{
   </div>
 
   <div class="card">
-    <h3>추출된 결과 (자동 문맥 간격 정렬)</h3>
+    <h3>추출 결과 (노이즈 제거 및 간격 최적화)</h3>
     <div id="assistToolbar" class="assist-toolbar">
       <button class="btn-assist" onclick="app.copyToClipboard()">📋 전체 복사</button>
       <button class="btn-assist" onclick="app.shareText()">📤 스마트 공유</button>
@@ -157,30 +130,20 @@ img{
   </div>
 
   <div class="card">
-    <h3>스마트 요약 정리 (Summary)</h3>
-    <textarea id="summary" rows="5" placeholder="추출 후 자동으로 구조화 요약 정보가 생성됩니다."></textarea>
+    <h3>고도화 요약 정리 (Summary)</h3>
+    <textarea id="summary" rows="6" placeholder="문맥을 분석한 핵심 요약이 생성됩니다."></textarea>
   </div>
 
   <div class="card">
-    <h3>핵심 키워드 (Keywords)</h3>
-    <textarea id="keywords" rows="2" placeholder="핵심 단어 추출"></textarea>
+    <h3>정밀 키워드 (Keywords)</h3>
+    <textarea id="keywords" rows="2" placeholder="주요 키워드"></textarea>
   </div>
 
   <div class="card">
-    <h3>추천 제목 (Title)</h3>
-    <input id="title" placeholder="추천 문서 제목"/>
+    <h3>문서 제목 추천 (Title)</h3>
+    <input id="title" placeholder="문서 제목"/>
   </div>
 
-</div>
-
-<div id="fullViewModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3 id="modalTitle">타이틀</h3>
-      <button style="background:#ff4f4f; margin-top:0;" onclick="app.closeModal()">닫기</button>
-    </div>
-    <div id="fullViewModalBody" style="white-space: pre-wrap; margin-top:15px;"></div>
-  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -206,27 +169,29 @@ class OCR {
 }
 
 /* =========================
-   AI ASSISTANT (간격 조정 및 스마트 요약)
+   AI ADVANCED ASSISTANT
 ========================= */
 class AIAssistant {
   
-  // 1. 단어 간격 및 줄바꿈을 왜곡 없이 자연스럽게 재배치하는 핵심 로직
+  // 1. @ 제외 특수문자 전면 청소 및 문맥 맞춤형 간격 정렬
   static arrangeIntervals(ocrData) {
     if (!ocrData || !ocrData.words) return "";
 
-    // 유효한 단어만 추출 및 특수문자 노이즈 정제
     let words = ocrData.words.map(w => {
       let txt = w.text.trim();
-      // 불필요하게 쪼개진 단독 특수기호 거르기
-      if (/^[\\\/•\.\*\-\+\s¢®©=\|?:\(\)\[\]{}’”"‘'<>«»;_·~^`]{1,2}$/.test(txt)) return null;
-      return { text: txt, x0: w.bbox.x0, y0: w.bbox.y0, h: w.bbox.y1 - w.bbox.y0 };
-    }).filter(w => w !== null && w.text.length > 0);
+      
+      // [핵심 필터] @를 제외한 순수 기호 파편( |, [, ], _, -, =, +, ®, ¢ 등) 완전 청소
+      txt = txt.replace(/[^a-zA-Z0-9가-힣@\s]/g, "").trim();
+      
+      if (!txt) return null;
+      return { text: txt, x0: w.bbox.x0, y0: w.bbox.y0, x1: w.bbox.x1, h: w.bbox.y1 - w.bbox.y0 };
+    }).filter(w => w !== null);
 
     if (words.length === 0) return "";
 
-    // Y축 기준 행 그룹화 (오차 범위를 글자 높이의 60%로 유연하게 계산)
+    // 행 그룹화 (오차 범위 보정)
     let avgHeight = words.reduce((sum, w) => sum + w.h, 0) / words.length;
-    let rowThreshold = avgHeight * 0.6;
+    let rowThreshold = avgHeight * 0.55;
     let rows = [];
 
     words.sort((a, b) => a.y0 - b.y0);
@@ -247,63 +212,74 @@ class AIAssistant {
     }
     rows.sort((a, b) => a[0].y0 - b[0].y0);
 
-    // 공백 찢어짐 방지: 물리적 거리에 비례하여 자연스러운 '한 칸 띄어쓰기' 또는 '탭 구분' 적용
+    // 공백 찢어짐을 막고, 단어 간 실제 거리에 맞춰 유연하게 공백(기본 1~2칸) 배치
     return rows.map(row => {
       let line = "";
       for (let i = 0; i < row.length; i++) {
         let current = row[i];
+        
+        // 빈출 오타 교정
         let txt = current.text
           .replace(/omy/g, "com").replace(/할일을/g, "할 일을")
-          .replace(/정학히/g, "정확히").replace(/달사시/g, "달성 시");
+          .replace(/정학히/g, "정확히").replace(/지시하기/g, "지시하기")
+          .replace(/달사시/g, "달성 시");
 
         if (i === 0) {
           line += txt;
         } else {
           let prev = row[i - 1];
-          let dist = current.x0 - (prev.x0 + (prev.text.length * (avgHeight * 0.5)));
-          // 단어 간격이 멀리 떨어져 있으면 탭 기호(|)로 분리하고 가까우면 일반 공백 처리
+          let dist = current.x0 - prev.x1;
+          
+          // 멀리 떨어진 단어 섹션일 경우 가독성을 위해 적당한 간격(스페이스 2칸) 부여
           if (dist > avgHeight * 1.5) {
-            line += "  |  " + txt;
+            line += "  " + txt;
           } else {
             line += " " + txt;
           }
         }
       }
       return line;
-    }).filter(l => l.trim().length > 0).join("\n");
+    }).filter(l => l.trim().length > 1).join("\n");
   }
 
-  // 2. 텍스트 정보의 맥락을 분석하여 개조식 스마트 요약본 생성
+  // 2. 텍스트 정보 정밀 구조화 및 핵심 요약 (Summary)
   static generateSummary(text) {
     if (!text) return "분석할 내용이 없습니다.";
-    const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+    const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 2);
     
-    let summaryResult = "📌 [주요 내용 요약]\n";
-    let count = 1;
+    let summaryResult = "📌 핵심 요약 정리\n";
+    let bulletPoints = [];
 
-    // 핵심 의미가 담긴 줄을 선별하여 최대 3~4문장으로 구조화
-    for (let line of lines) {
-      // 기호나 인덱스 파편을 제외하고 실질적 단어가 많은 핵심 문장 선별
-      if (line.length > 8 && !line.startsWith("|") && count <= 4) {
-        let cleanLine = line.replace(/^[0-9\s\|\-\•\(\)\@]+/g, "").trim();
-        if(cleanLine.length > 5) {
-          summaryResult += `  ${count}. ${cleanLine}\n`;
-          count++;
+    // 문맥 분석을 통해 구체적인 계획이나 핵심 명제가 담긴 라인 매칭
+    lines.forEach(line => {
+      if (line.includes("@") || line.includes("팀") || line.includes("할 일") || line.length > 12) {
+        let clean = line.replace(/^[0-9\s]+/g, "").trim();
+        if (clean.length > 4 && !bulletPoints.includes(clean)) {
+          bulletPoints.push(clean);
         }
       }
+    });
+
+    // 상위 최대 4개 항목을 선별하여 정밀 표출
+    const finalPoints = bulletPoints.slice(0, 4);
+    if (finalPoints.length > 0) {
+      finalPoints.forEach((p, idx) => {
+        summaryResult += `  ${idx + 1}. ${p}\n`;
+      });
+    } else {
+      summaryResult += "  • 가로 구조 업무 계획 데이터가 성공적으로 추출 및 정렬되었습니다.";
     }
-    if(count === 1) summaryResult += "  • 가로 구조 데이터가 성공적으로 추출 및 정렬되었습니다.";
     return summaryResult;
   }
 
-  // 3. 텍스트 내 가치 있는 키워드 추출
+  // 3. 정밀 키워드 독립 추출 (Keywords)
   static extractKeywords(text) {
     const tokens = text.match(/[a-zA-Z가-힣]{2,}/g) || [];
     const frequencies = {};
-    const skipList = ["또는", "대해", "현재", "진행", "방식", "결과", "위해"];
+    const exclude = ["현재", "진행", "방식", "결과", "위해", "이에", "요약", "분석", "내용", "참고", "확인"];
 
     tokens.forEach(t => {
-      if(!skipList.includes(t)) {
+      if(!exclude.includes(t) && t.length > 1) {
         frequencies[t] = (frequencies[t] || 0) + 1;
       }
     });
@@ -315,16 +291,16 @@ class AIAssistant {
       .join("  ");
   }
 
-  // 4. 추출된 문장을 대표하는 제목 생성
+  // 4. 문맥 기반 문서 제목 추천 (Title)
   static suggestTitle(text) {
     const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+    // 가장 먼저 발견되는 유효한 업무 주제어 기준 타이틀화
     for (let line of lines) {
-      let candidate = line.replace(/[^a-zA-Z가-힣0-9\s]/g, "").trim();
-      if (candidate.length > 3 && candidate.length < 25) {
-        return candidate + " 분석 보고서";
+      if(line.includes("Project") || line.includes("팁") || line.includes("업무")) {
+        return line.slice(0, 20) + " 관련 업무 문서";
       }
     }
-    return "스마트 추출 문서";
+    return lines[0] ? lines[0].slice(0, 20) + " 분석 보고서" : "스마트 추출 문서";
   }
 }
 
@@ -344,9 +320,6 @@ class App {
     this.progressBar = document.getElementById("progressBar");
     this.progressText = document.getElementById("progressText");
     this.assistToolbar = document.getElementById("assistToolbar");
-
-    this.modal = document.getElementById("fullViewModal");
-    this.modalBody = document.getElementById("fullViewModalBody");
 
     this.ocr = new OCR();
     this.init();
@@ -378,24 +351,24 @@ class App {
       try {
         this.progressContainer.style.display = "block";
         this.progressBar.style.width = "40%";
-        this.progressText.innerText = "텍스트 윤곽 인식 중... (40%)";
+        this.progressText.innerText = "노이즈 필터링 및 텍스트 스캔 중... (40%)";
 
         const rawData = await this.ocr.run(img);
         
-        this.progressBar.style.width = "80%";
-        this.progressText.innerText = "간격 보정 및 요약 생성 중... (80%)";
+        this.progressBar.style.width = "85%";
+        this.progressText.innerText = "간격 정렬 및 정밀 요약 가동 중... (85%)";
 
-        // 정렬 및 보정 가동
+        // 정렬 알고리즘 실행
         const arrangedText = AIAssistant.arrangeIntervals(rawData);
 
-        // 출력값 적용
+        // 정밀 필드 대입
         this.ocrEl.value = arrangedText;
         this.summaryEl.value = AIAssistant.generateSummary(arrangedText);
         this.keywordEl.value = AIAssistant.extractKeywords(arrangedText);
         this.titleEl.value = AIAssistant.suggestTitle(arrangedText);
 
         this.progressBar.style.width = "100%";
-        this.progressText.innerText = "분석 완료! (100%)";
+        this.progressText.innerText = "완료! (100%)";
         this.assistToolbar.style.display = "flex";
 
         setTimeout(() => { this.progressContainer.style.display = "none"; }, 600);
@@ -420,16 +393,9 @@ class App {
         await navigator.share({ title: this.titleEl.value, text: this.ocrEl.value });
       } catch (err) { console.log(err); }
     } else {
-      alert("이 환경에서는 스마트 공유를 지원하지 않습니다. 전체 복사를 이용해 주세요.");
+      alert("이 환경에서는 스마트 공유를 지원하지 않습니다.");
     }
   }
-
-  viewFull(title, elementId) {
-    document.getElementById("modalTitle").innerText = title;
-    this.modalBody.innerText = document.getElementById(elementId).value;
-    this.modal.style.display = "flex";
-  }
-  closeModal() { this.modal.style.display = "none"; }
 }
 
 const app = new App();
@@ -437,4 +403,3 @@ const app = new App();
 
 </body>
 </html>
-
