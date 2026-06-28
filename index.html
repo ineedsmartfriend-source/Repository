@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>OCR Memo Assistant</title>
+<title>OCR 스마트 메모 정렬기</title>
 
 <style>
 body{
   margin:0;
-  font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family:system-ui, -apple-system, sans-serif;
   background:#0f1115;
   color:#fff;
 }
@@ -30,9 +30,9 @@ header{
   border-radius:12px;
   border: 1px solid #232733;
 }
-textarea, input{
+textarea{
   width:100%;
-  padding:12px;
+  padding:14px;
   border-radius:8px;
   border:1px solid #2e3344;
   background:#0f1115;
@@ -40,29 +40,25 @@ textarea, input{
   box-sizing: border-box;
   font-size: 14px;
   line-height: 1.6;
-}
-textarea {
-  font-family: "Fira Code", Consolas, Monaco, monospace;
+  font-family: "Consolas", "Monaco", monospace;
 }
 button{
   background:#4f8cff;
   color:white;
   border:none;
-  padding:12px 20px;
+  padding:14px;
   border-radius:8px;
   cursor:pointer;
   font-weight: bold;
-  font-size: 14px;
+  font-size: 15px;
   width: 100%;
-  transition: background 0.2s;
 }
-button:hover {
-  background: #3b76e0;
-}
+button:hover { background: #3b76e0; }
 img{
   max-width:100%;
   margin-top:12px;
   border-radius: 6px;
+  display: none;
 }
 .progress-container {
   display: none;
@@ -76,14 +72,13 @@ img{
   height: 8px;
   background: #4f8cff;
   border-radius: 4px;
-  transition: width 0.2s;
+  transition: width 0.1s;
 }
-.assist-toolbar {
+.toolbar {
   display: none;
-  gap: 8px;
   margin-bottom: 10px;
 }
-.btn-assist {
+.btn-copy {
   background: #2a2e3d;
   color: #7cb5ff;
   border: 1px solid #4f8cff;
@@ -91,30 +86,28 @@ img{
   font-size: 13px;
   border-radius: 20px;
   width: auto;
+  font-weight: bold;
+  cursor: pointer;
 }
-h3 {
-  margin-top: 0;
-  margin-bottom: 12px;
-  font-size: 15px;
-  color: #a0a5b5;
-}
+/* 전처리용 숨김 캔버스 */
+#hiddenCanvas { display: none; }
 </style>
 </head>
 
 <body>
 
-<header>📋 깔끔한 텍스트 메모 정렬 어시스트</header>
+<header>📋 표조직 및 숫자 배지 완전 인식 스튜디오</header>
 
 <div class="container">
 
   <div class="card">
-    <h3>1. 이미지 선택</h3>
-    <input type="file" id="file">
+    <input type="file" id="file" accept="image/*">
     <img id="preview"/>
+    <canvas id="hiddenCanvas"></canvas>
   </div>
 
   <div class="card">
-    <button onclick="app.runOCR()">나란히 정렬해서 추출하기</button>
+    <button onclick="app.processImage()">나란히 정렬해서 추출하기</button>
     <div id="progressContainer" class="progress-container">
       <div style="font-size:12px; margin-bottom:6px; color:#a0a5b5;" id="progressText">대기 중...</div>
       <div class="progress-bar" id="progressBar"></div>
@@ -122,11 +115,10 @@ h3 {
   </div>
 
   <div class="card">
-    <h3>2. 나란히 정렬된 메모 결과 (바로 복사 가능)</h3>
-    <div id="assistToolbar" class="assist-toolbar">
-      <button class="btn-assist" onclick="app.copyToClipboard()">📋 한 번에 복사하기</button>
+    <div id="toolbar" class="toolbar">
+      <button class="btn-copy" onclick="app.copy()">📋 결과 메모 복사하기</button>
     </div>
-    <textarea id="ocr" rows="14" placeholder="스캔을 시작하면 텍스트가 줄바꿈과 열 구조에 맞춰 한 줄씩 깔끔하게 정렬됩니다."></textarea>
+    <textarea id="ocr" rows="15" placeholder="스캔 결과가 여기에 실시간으로 나란히 배치됩니다."></textarea>
   </div>
 
 </div>
@@ -134,88 +126,98 @@ h3 {
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <script>
-class OCRProcessor {
-  constructor(){
-    this.worker = null;
-    this.ready = false;
-  }
-  async init(){
-    this.worker = await Tesseract.createWorker("kor+eng", 1);
-    this.ready = true;
-  }
-  async run(image){
-    if(!this.ready) await this.init();
-    const res = await this.worker.recognize(image);
-    return res.data;
+class ImagePreprocessor {
+  // 주황색 배경의 흰색 숫자를 OCR 엔진이 문자로 인지할 수 있도록 흑백 고대비 반전 처리
+  static preprocess(imgElement, canvas) {
+    const ctx = canvas.getContext('2d');
+    canvas.width = imgElement.naturalWidth;
+    canvas.height = imgElement.naturalHeight;
+    ctx.drawImage(imgElement, 0, 0);
+
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imgData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+      let r = data[i], g = data[i+1], b = data[i+2];
+      
+      // 주황색 및 어두운 갈색 계열을 집중적으로 탐색하여 흰색 문자로 반전 보정
+      if ((r > 120 && g < 90 && b < 40) || (r < 40 && g < 40 && b < 40)) {
+        data[i] = 255; data[i+1] = 255; data[i+2] = 255; // 배경을 밝게
+      } else if (r > 200 && g > 200 && b > 200) {
+        data[i] = 0; data[i+1] = 0; data[i+2] = 0; // 흰색 글자를 검게
+      }
+      
+      // 전반적인 고대비 이진화 가동
+      let v = (0.2126*r + 0.7152*g + 0.0722*b >= 110) ? 255 : 0;
+      data[i] = v; data[i+1] = v; data[i+2] = v;
+    }
+    ctx.putImageData(imgData, 0, 0);
+    return canvas.toDataURL();
   }
 }
 
-class MemoAligner {
-  static align(ocrData) {
-    if (!ocrData || !ocrData.words) return "";
+class AdvancedAligner {
+  static format(ocrData) {
+    if (!ocrData || !ocrData.words) return "인식된 데이터가 없습니다.";
 
-    // 1단계: @를 제외한 의미 없는 불필요 특수문자 파편 전면 청소
+    // 노이즈 차단 및 단어 파편 병합
     let words = ocrData.words.map(w => {
-      let txt = w.text.trim();
-      txt = txt.replace(/[^a-zA-Z0-9가-힣@\s\.\,\-\~]/g, "").trim();
-      if (!txt) return null;
-      return { text: txt, x0: w.bbox.x0, y0: w.bbox.y0, h: w.bbox.y1 - w.bbox.y0 };
+      let txt = w.text.trim().replace(/[^a-zA-Z0-9가-힣\s\.\,\-\·]/g, "");
+      // 오타 정정 사전 연동
+      txt = txt.replace(/^No$/g, "No.").replace(/^O1$/g, "01").replace(/^O2$/g, "02")
+               .replace(/^O8$/g, "08").replace(/^IO$/g, "10").replace(/할일을/g, "할 일");
+      
+      if (!txt || txt.length === 0) return null;
+      return { text: txt, x0: w.bbox.x0, x1: w.bbox.x1, y0: w.bbox.y0, y1: w.bbox.y1, h: w.bbox.y1 - w.bbox.y0 };
     }).filter(w => w !== null);
 
-    if (words.length === 0) return "추출된 텍스트가 없습니다.";
+    if (words.length === 0) return "유효한 글자가 없습니다.";
 
-    // 2단계: Y축 좌표를 분석하여 '같은 행(줄)'에 있는 단어들 묶기
-    let avgHeight = words.reduce((sum, w) => sum + w.h, 0) / words.length;
-    let rowThreshold = avgHeight * 0.50; // 행 판정 오차범위 타이트하게 조정
+    // 가로 행 추적 알고리즘 개편 (동적 가로 밴드 추적 방식)
     let rows = [];
-
     words.sort((a, b) => a.y0 - b.y0);
 
     while (words.length > 0) {
       let base = words.shift();
       let currentRow = [base];
+      let baseCenter = (base.y0 + base.y1) / 2;
+      let allowedGap = base.h * 0.65; // 세로 오차 한계선 설정
 
       for (let i = 0; i < words.length; i++) {
-        if (Math.abs(words[i].y0 - base.y0) <= rowThreshold) {
+        let targetCenter = (words[i].y0 + words[i].y1) / 2;
+        if (Math.abs(targetCenter - baseCenter) <= allowedGap) {
           currentRow.push(words[i]);
           words.splice(i, 1);
           i--;
         }
       }
-      // 가로(왼쪽 -> 오른쪽) 순서대로 정렬
       currentRow.sort((a, b) => a.x0 - b.x0);
       rows.push(currentRow);
     }
+    
     rows.sort((a, b) => a[0].y0 - b[0].y0);
 
-    // 3단계: 나란히 정렬 및 구분자 추가 (핵심)
+    // 열 구조화 보정 매핑
     return rows.map(row => {
-      let lineSegments = [];
-      let currentSegment = row[0].text;
-
-      for (let i = 1; i < row.length; i++) {
-        let prev = row[i - 1];
+      let finalLine = "";
+      for (let i = 0; i < row.length; i++) {
         let curr = row[i];
-        let dist = curr.x0 - prev.x0;
-
-        // 같은 칸에 묶여 있는 글자인지, 완전히 다른 칸(열)으로 떨어진 글자인지 판별
-        // 글자 높이 대비 가로 거리가 멀다면 새로운 열로 판단
-        if (dist > avgHeight * 3.5) {
-          lineSegments.push(currentSegment);
-          currentSegment = curr.text;
+        if (i === 0) {
+          finalLine += curr.text;
         } else {
-          // 가까운 거리는 자연스럽게 띄어쓰기로 연결
-          currentSegment += " " + curr.text;
+          let prev = row[i-1];
+          let spaceDistance = curr.x0 - prev.x1;
+          
+          // 단어 간의 물리 거리가 넓으면 표의 다른 컬럼으로 인지하고 가독성 좋은 탭 구분선 삽입
+          if (spaceDistance > curr.h * 1.5) {
+            finalLine += "   |   " + curr.text;
+          } else {
+            finalLine += " " + curr.text;
+          }
         }
       }
-      lineSegments.push(currentSegment);
-
-      // 각 열의 데이터들을 깔끔하게 "  |  " 기호로 나란히 연결
-      return lineSegments
-        .map(seg => seg.trim())
-        .filter(seg => seg.length > 0)
-        .join("   |   ");
-    }).filter(line => line.trim().length > 1).join("\n");
+      return finalLine;
+    }).filter(line => line.replace(/[^a-zA-Z0-9가-힣]/g, "").length > 0).join("\n");
   }
 }
 
@@ -223,69 +225,76 @@ class App {
   constructor(){
     this.file = document.getElementById("file");
     this.preview = document.getElementById("preview");
+    this.canvas = document.getElementById("hiddenCanvas");
     this.ocrEl = document.getElementById("ocr");
-    this.progressContainer = document.getElementById("progressContainer");
-    this.progressBar = document.getElementById("progressBar");
-    this.progressText = document.getElementById("progressText");
-    this.assistToolbar = document.getElementById("assistToolbar");
+    this.pContainer = document.getElementById("progressContainer");
+    this.pBar = document.getElementById("progressBar");
+    this.pText = document.getElementById("progressText");
+    this.toolbar = document.getElementById("toolbar");
 
-    this.ocr = new OCRProcessor();
+    this.worker = null;
     this.init();
   }
 
   async init(){
-    await this.ocr.init();
+    this.worker = await Tesseract.createWorker("kor+eng", 1);
     this.file.addEventListener("change", (e)=>{
       const file = e.target.files[0];
       if(!file) return;
       const reader = new FileReader();
       reader.onload = (ev)=>{
         this.preview.src = ev.target.result;
-        this.currentImage = ev.target.result;
-        this.assistToolbar.style.display = "none";
+        this.preview.style.display = "block";
+        this.toolbar.style.display = "none";
       };
       reader.readAsDataURL(file);
     });
   }
 
-  async runOCR(){
-    if(!this.currentImage){
-      alert("이미지를 먼저 업로드해 주세요.");
+  async processImage(){
+    if(!this.preview.src){
+      alert("이미지를 먼저 선택해 주세요.");
       return;
     }
+    
+    this.pContainer.style.display = "block";
+    this.pBar.style.width = "20%";
+    this.pText.innerText = "1단계: 배지 숫자 그래픽 인식률 복원 중...";
+
+    const processedDataUrl = ImagePreprocessor.preprocess(this.preview, this.canvas);
+    
+    this.pBar.style.width = "50%";
+    this.pText.innerText = "2단계: 딥러닝 문자 정밀 추출 중...";
+
     const img = new Image();
-    img.src = this.currentImage;
-    img.onload = async ()=>{
+    img.src = processedDataUrl;
+    img.onload = async () => {
       try {
-        this.progressContainer.style.display = "block";
-        this.progressBar.style.width = "30%";
-        this.progressText.innerText = "이미지에서 글자 위치 분석 중...";
-
-        const rawData = await this.ocr.run(img);
+        const rawResult = await this.worker.recognize(img);
         
-        this.progressBar.style.width = "80%";
-        this.progressText.innerText = "열 구조 파악 및 가로 정렬 보정 중...";
+        this.pBar.style.width = "90%";
+        this.pText.innerText = "3단계: 수평 가로 정렬 조립 중...";
 
-        const resultMemo = MemoAligner.align(rawData);
+        const finalizedMemo = AdvancedAligner.format(rawResult.data);
+        this.ocrEl.value = finalizedMemo;
 
-        this.ocrEl.value = resultMemo;
-        this.progressBar.style.width = "100%";
-        this.progressText.innerText = "정렬 완료!";
-        this.assistToolbar.style.display = "flex";
-
-        setTimeout(() => { this.progressContainer.style.display = "none"; }, 500);
-      } catch(err) {
+        this.pBar.style.width = "100%";
+        this.pText.innerText = "추출 및 정렬이 완료되었습니다!";
+        this.toolbar.style.display = "block";
+        
+        setTimeout(() => { this.pContainer.style.display = "none"; }, 500);
+      } catch (err) {
         console.error(err);
-        alert("분석 중 에러가 발생했습니다.");
-        this.progressContainer.style.display = "none";
+        alert("OCR 처리 중 오류가 발생했습니다.");
+        this.pContainer.style.display = "none";
       }
     };
   }
 
-  async copyToClipboard() {
-    if (!this.ocrEl.value.trim()) return;
+  async copy() {
+    if(!this.ocrEl.value.trim()) return;
     await navigator.clipboard.writeText(this.ocrEl.value);
-    alert("나란히 정렬된 텍스트가 클립보드에 복사되었습니다. 메모장에 붙여넣어 보세요!");
+    alert("메모가 깔끔하게 클립보드에 저장되었습니다! 필요한 곳에 붙여넣으세요.");
   }
 }
 
