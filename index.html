@@ -3,145 +3,130 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>OCR AI Studio FIXED</title>
+<title>OCR Memo Assistant</title>
 
 <style>
 body{
   margin:0;
-  font-family:system-ui;
+  font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background:#0f1115;
   color:#fff;
 }
-
 header{
-  padding:12px;
+  padding:16px;
   background:#171a21;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
+  font-weight: bold;
+  font-size: 16px;
+  border-bottom: 1px solid #232733;
 }
-
 .container{
-  padding:12px;
+  padding:16px;
   display:grid;
-  gap:10px;
+  gap:12px;
 }
-
 .card{
   background:#171a21;
-  padding:14px;
-  border-radius:10px;
+  padding:16px;
+  border-radius:12px;
+  border: 1px solid #232733;
 }
-
-textarea,input{
+textarea, input{
   width:100%;
   padding:12px;
   border-radius:8px;
-  border:1px solid #333;
+  border:1px solid #2e3344;
   background:#0f1115;
   color:#fff;
   box-sizing: border-box;
   font-size: 14px;
   line-height: 1.6;
 }
-
-#ocr {
-  font-family: inherit;
-  white-space: pre-wrap;
-  word-break: break-all;
+textarea {
+  font-family: "Fira Code", Consolas, Monaco, monospace;
 }
-
 button{
   background:#4f8cff;
   color:white;
   border:none;
-  padding:10px 16px;
+  padding:12px 20px;
   border-radius:8px;
   cursor:pointer;
-  margin-top:8px;
   font-weight: bold;
+  font-size: 14px;
+  width: 100%;
+  transition: background 0.2s;
 }
-
+button:hover {
+  background: #3b76e0;
+}
 img{
   max-width:100%;
-  margin-top:10px;
+  margin-top:12px;
+  border-radius: 6px;
 }
-
 .progress-container {
   display: none;
   background: #222;
   border-radius: 8px;
-  padding: 10px;
-  margin-top: 8px;
+  padding: 12px;
+  margin-top: 10px;
 }
 .progress-bar {
   width: 0%;
-  height: 12px;
+  height: 8px;
   background: #4f8cff;
-  border-radius: 6px;
-  transition: width 0.2s ease;
+  border-radius: 4px;
+  transition: width 0.2s;
 }
-
 .assist-toolbar {
   display: none;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 .btn-assist {
   background: #2a2e3d;
   color: #7cb5ff;
   border: 1px solid #4f8cff;
-  padding: 6px 12px;
+  padding: 8px 16px;
   font-size: 13px;
   border-radius: 20px;
+  width: auto;
+}
+h3 {
   margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 15px;
+  color: #a0a5b5;
 }
 </style>
 </head>
 
 <body>
 
-<header>
-  <div>OCR AI Studio FIXED (특수문자 필터 및 정밀 요약판)</div>
-</header>
+<header>📋 깔끔한 텍스트 메모 정렬 어시스트</header>
 
 <div class="container">
 
   <div class="card">
+    <h3>1. 이미지 선택</h3>
     <input type="file" id="file">
     <img id="preview"/>
   </div>
 
   <div class="card">
-    <button onclick="app.runOCR()" style="width:100%; padding:12px; font-size:15px;">텍스트 정밀 추출 및 고도화 요약</button>
+    <button onclick="app.runOCR()">나란히 정렬해서 추출하기</button>
     <div id="progressContainer" class="progress-container">
-      <div style="font-size:12px; margin-bottom:4px;" id="progressText">분석 중...</div>
+      <div style="font-size:12px; margin-bottom:6px; color:#a0a5b5;" id="progressText">대기 중...</div>
       <div class="progress-bar" id="progressBar"></div>
     </div>
   </div>
 
   <div class="card">
-    <h3>추출 결과 (노이즈 제거 및 간격 최적화)</h3>
+    <h3>2. 나란히 정렬된 메모 결과 (바로 복사 가능)</h3>
     <div id="assistToolbar" class="assist-toolbar">
-      <button class="btn-assist" onclick="app.copyToClipboard()">📋 전체 복사</button>
-      <button class="btn-assist" onclick="app.shareText()">📤 스마트 공유</button>
+      <button class="btn-assist" onclick="app.copyToClipboard()">📋 한 번에 복사하기</button>
     </div>
-    <textarea id="ocr" rows="12" placeholder="결과가 여기에 표시됩니다."></textarea>
-  </div>
-
-  <div class="card">
-    <h3>고도화 요약 정리 (Summary)</h3>
-    <textarea id="summary" rows="6" placeholder="문맥을 분석한 핵심 요약이 생성됩니다."></textarea>
-  </div>
-
-  <div class="card">
-    <h3>정밀 키워드 (Keywords)</h3>
-    <textarea id="keywords" rows="2" placeholder="주요 키워드"></textarea>
-  </div>
-
-  <div class="card">
-    <h3>문서 제목 추천 (Title)</h3>
-    <input id="title" placeholder="문서 제목"/>
+    <textarea id="ocr" rows="14" placeholder="스캔을 시작하면 텍스트가 줄바꿈과 열 구조에 맞춰 한 줄씩 깔끔하게 정렬됩니다."></textarea>
   </div>
 
 </div>
@@ -149,10 +134,7 @@ img{
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <script>
-/* =========================
-   OCR CORE ENGINE
-========================= */
-class OCR {
+class OCRProcessor {
   constructor(){
     this.worker = null;
     this.ready = false;
@@ -168,30 +150,23 @@ class OCR {
   }
 }
 
-/* =========================
-   AI ADVANCED ASSISTANT
-========================= */
-class AIAssistant {
-  
-  // 1. @ 제외 특수문자 전면 청소 및 문맥 맞춤형 간격 정렬
-  static arrangeIntervals(ocrData) {
+class MemoAligner {
+  static align(ocrData) {
     if (!ocrData || !ocrData.words) return "";
 
+    // 1단계: @를 제외한 의미 없는 불필요 특수문자 파편 전면 청소
     let words = ocrData.words.map(w => {
       let txt = w.text.trim();
-      
-      // [핵심 필터] @를 제외한 순수 기호 파편( |, [, ], _, -, =, +, ®, ¢ 등) 완전 청소
-      txt = txt.replace(/[^a-zA-Z0-9가-힣@\s]/g, "").trim();
-      
+      txt = txt.replace(/[^a-zA-Z0-9가-힣@\s\.\,\-\~]/g, "").trim();
       if (!txt) return null;
-      return { text: txt, x0: w.bbox.x0, y0: w.bbox.y0, x1: w.bbox.x1, h: w.bbox.y1 - w.bbox.y0 };
+      return { text: txt, x0: w.bbox.x0, y0: w.bbox.y0, h: w.bbox.y1 - w.bbox.y0 };
     }).filter(w => w !== null);
 
-    if (words.length === 0) return "";
+    if (words.length === 0) return "추출된 텍스트가 없습니다.";
 
-    // 행 그룹화 (오차 범위 보정)
+    // 2단계: Y축 좌표를 분석하여 '같은 행(줄)'에 있는 단어들 묶기
     let avgHeight = words.reduce((sum, w) => sum + w.h, 0) / words.length;
-    let rowThreshold = avgHeight * 0.55;
+    let rowThreshold = avgHeight * 0.50; // 행 판정 오차범위 타이트하게 조정
     let rows = [];
 
     words.sort((a, b) => a.y0 - b.y0);
@@ -207,121 +182,54 @@ class AIAssistant {
           i--;
         }
       }
+      // 가로(왼쪽 -> 오른쪽) 순서대로 정렬
       currentRow.sort((a, b) => a.x0 - b.x0);
       rows.push(currentRow);
     }
     rows.sort((a, b) => a[0].y0 - b[0].y0);
 
-    // 공백 찢어짐을 막고, 단어 간 실제 거리에 맞춰 유연하게 공백(기본 1~2칸) 배치
+    // 3단계: 나란히 정렬 및 구분자 추가 (핵심)
     return rows.map(row => {
-      let line = "";
-      for (let i = 0; i < row.length; i++) {
-        let current = row[i];
-        
-        // 빈출 오타 교정
-        let txt = current.text
-          .replace(/omy/g, "com").replace(/할일을/g, "할 일을")
-          .replace(/정학히/g, "정확히").replace(/지시하기/g, "지시하기")
-          .replace(/달사시/g, "달성 시");
+      let lineSegments = [];
+      let currentSegment = row[0].text;
 
-        if (i === 0) {
-          line += txt;
+      for (let i = 1; i < row.length; i++) {
+        let prev = row[i - 1];
+        let curr = row[i];
+        let dist = curr.x0 - prev.x0;
+
+        // 같은 칸에 묶여 있는 글자인지, 완전히 다른 칸(열)으로 떨어진 글자인지 판별
+        // 글자 높이 대비 가로 거리가 멀다면 새로운 열로 판단
+        if (dist > avgHeight * 3.5) {
+          lineSegments.push(currentSegment);
+          currentSegment = curr.text;
         } else {
-          let prev = row[i - 1];
-          let dist = current.x0 - prev.x1;
-          
-          // 멀리 떨어진 단어 섹션일 경우 가독성을 위해 적당한 간격(스페이스 2칸) 부여
-          if (dist > avgHeight * 1.5) {
-            line += "  " + txt;
-          } else {
-            line += " " + txt;
-          }
+          // 가까운 거리는 자연스럽게 띄어쓰기로 연결
+          currentSegment += " " + curr.text;
         }
       }
-      return line;
-    }).filter(l => l.trim().length > 1).join("\n");
-  }
+      lineSegments.push(currentSegment);
 
-  // 2. 텍스트 정보 정밀 구조화 및 핵심 요약 (Summary)
-  static generateSummary(text) {
-    if (!text) return "분석할 내용이 없습니다.";
-    const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 2);
-    
-    let summaryResult = "📌 핵심 요약 정리\n";
-    let bulletPoints = [];
-
-    // 문맥 분석을 통해 구체적인 계획이나 핵심 명제가 담긴 라인 매칭
-    lines.forEach(line => {
-      if (line.includes("@") || line.includes("팀") || line.includes("할 일") || line.length > 12) {
-        let clean = line.replace(/^[0-9\s]+/g, "").trim();
-        if (clean.length > 4 && !bulletPoints.includes(clean)) {
-          bulletPoints.push(clean);
-        }
-      }
-    });
-
-    // 상위 최대 4개 항목을 선별하여 정밀 표출
-    const finalPoints = bulletPoints.slice(0, 4);
-    if (finalPoints.length > 0) {
-      finalPoints.forEach((p, idx) => {
-        summaryResult += `  ${idx + 1}. ${p}\n`;
-      });
-    } else {
-      summaryResult += "  • 가로 구조 업무 계획 데이터가 성공적으로 추출 및 정렬되었습니다.";
-    }
-    return summaryResult;
-  }
-
-  // 3. 정밀 키워드 독립 추출 (Keywords)
-  static extractKeywords(text) {
-    const tokens = text.match(/[a-zA-Z가-힣]{2,}/g) || [];
-    const frequencies = {};
-    const exclude = ["현재", "진행", "방식", "결과", "위해", "이에", "요약", "분석", "내용", "참고", "확인"];
-
-    tokens.forEach(t => {
-      if(!exclude.includes(t) && t.length > 1) {
-        frequencies[t] = (frequencies[t] || 0) + 1;
-      }
-    });
-
-    return Object.entries(frequencies)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(entry => `#${entry[0]}`)
-      .join("  ");
-  }
-
-  // 4. 문맥 기반 문서 제목 추천 (Title)
-  static suggestTitle(text) {
-    const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
-    // 가장 먼저 발견되는 유효한 업무 주제어 기준 타이틀화
-    for (let line of lines) {
-      if(line.includes("Project") || line.includes("팁") || line.includes("업무")) {
-        return line.slice(0, 20) + " 관련 업무 문서";
-      }
-    }
-    return lines[0] ? lines[0].slice(0, 20) + " 분석 보고서" : "스마트 추출 문서";
+      // 각 열의 데이터들을 깔끔하게 "  |  " 기호로 나란히 연결
+      return lineSegments
+        .map(seg => seg.trim())
+        .filter(seg => seg.length > 0)
+        .join("   |   ");
+    }).filter(line => line.trim().length > 1).join("\n");
   }
 }
 
-/* =========================
-   APPLICATION CORE FLOW
-========================= */
 class App {
   constructor(){
     this.file = document.getElementById("file");
     this.preview = document.getElementById("preview");
     this.ocrEl = document.getElementById("ocr");
-    this.summaryEl = document.getElementById("summary");
-    this.keywordEl = document.getElementById("keywords");
-    this.titleEl = document.getElementById("title");
-
     this.progressContainer = document.getElementById("progressContainer");
     this.progressBar = document.getElementById("progressBar");
     this.progressText = document.getElementById("progressText");
     this.assistToolbar = document.getElementById("assistToolbar");
 
-    this.ocr = new OCR();
+    this.ocr = new OCRProcessor();
     this.init();
   }
 
@@ -350,28 +258,22 @@ class App {
     img.onload = async ()=>{
       try {
         this.progressContainer.style.display = "block";
-        this.progressBar.style.width = "40%";
-        this.progressText.innerText = "노이즈 필터링 및 텍스트 스캔 중... (40%)";
+        this.progressBar.style.width = "30%";
+        this.progressText.innerText = "이미지에서 글자 위치 분석 중...";
 
         const rawData = await this.ocr.run(img);
         
-        this.progressBar.style.width = "85%";
-        this.progressText.innerText = "간격 정렬 및 정밀 요약 가동 중... (85%)";
+        this.progressBar.style.width = "80%";
+        this.progressText.innerText = "열 구조 파악 및 가로 정렬 보정 중...";
 
-        // 정렬 알고리즘 실행
-        const arrangedText = AIAssistant.arrangeIntervals(rawData);
+        const resultMemo = MemoAligner.align(rawData);
 
-        // 정밀 필드 대입
-        this.ocrEl.value = arrangedText;
-        this.summaryEl.value = AIAssistant.generateSummary(arrangedText);
-        this.keywordEl.value = AIAssistant.extractKeywords(arrangedText);
-        this.titleEl.value = AIAssistant.suggestTitle(arrangedText);
-
+        this.ocrEl.value = resultMemo;
         this.progressBar.style.width = "100%";
-        this.progressText.innerText = "완료! (100%)";
+        this.progressText.innerText = "정렬 완료!";
         this.assistToolbar.style.display = "flex";
 
-        setTimeout(() => { this.progressContainer.style.display = "none"; }, 600);
+        setTimeout(() => { this.progressContainer.style.display = "none"; }, 500);
       } catch(err) {
         console.error(err);
         alert("분석 중 에러가 발생했습니다.");
@@ -383,18 +285,7 @@ class App {
   async copyToClipboard() {
     if (!this.ocrEl.value.trim()) return;
     await navigator.clipboard.writeText(this.ocrEl.value);
-    alert("텍스트가 클립보드에 복사되었습니다!");
-  }
-
-  async shareText() {
-    if (!this.ocrEl.value.trim()) return;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: this.titleEl.value, text: this.ocrEl.value });
-      } catch (err) { console.log(err); }
-    } else {
-      alert("이 환경에서는 스마트 공유를 지원하지 않습니다.");
-    }
+    alert("나란히 정렬된 텍스트가 클립보드에 복사되었습니다. 메모장에 붙여넣어 보세요!");
   }
 }
 
